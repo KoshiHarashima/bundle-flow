@@ -3,29 +3,27 @@
 	"dockerComposeFile": "docker-compose.yml",
 	"service": "dev",
 	"workspaceFolder": "/bundle-flow",
-	// 初期化時にユーザー名を尋ねるスクリプトを実行
-	"initializeCommand": "bash .devcontainer/initialize.sh",
+	"runArgs": ["--gpus","all"],
 	"customizations": {
-		"vscode": {
-			"extensions": [
-				"ms-python.python",
-				"ms-python.vscode-pylance",
-				"ms-toolsai.jupyter",
-				"ms-vscode-remote.remote-containers",
-				"ms-azuretools.vscode-docker"
-			],
-			"settings": {
-				"python.defaultInterpreterPath": "/root/.pyenv/shims/python",
-				"python.formatting.provider": "black",
-				"editor.formatOnSave": true,
-				"jupyter.jupyterServerType": "local"
-			}
+	  "vscode": {
+		"extensions": [
+		  "ms-python.python",
+		  "ms-python.vscode-pylance",
+		  "ms-toolsai.jupyter",
+		  "ms-vscode-remote.remote-containers",
+		  "nvidia.nsight-vscode-edition",
+		  "ms-azuretools.vscode-docker"
+		],
+		"settings": {
+		  "python.defaultInterpreterPath": "/usr/bin/python",
+		  "python.formatting.provider": "black",
+		  "editor.formatOnSave": true,
+		  "jupyter.jupyterServerType": "local"
 		}
+	  }
 	},
-	"forwardPorts": [
-		8888
-	],
+	"forwardPorts": [8888],
 	"remoteUser": "root",
-	// オプショナル: コンテナ起動時に実行するコマンド
-	"postCreateCommand": "bash .devcontainer/setup_git.sh && pip install jupyterlab black && jupyter lab --ip=0.0.0.0 --allow-root --NotebookApp.token='' --NotebookApp.password=''"
-}
+	"postCreateCommand": "bash .devcontainer/setup_git.sh || true"
+  }
+  

@@ -1,24 +1,24 @@
-FROM python:3.10-slim
+# 例：CUDA 12.x + PyTorch 2.x のタグを選ぶ
+FROM nvcr.io/nvidia/pytorch:24.06-py3
 
-# タイムゾーン設定
 ENV TZ=Asia/Tokyo
-RUN ln -snf /usr/share/zoneinfo/Asia/Tokyo /etc/localtime && echo Asia/Tokyo > /etc/timezone
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
-# 必要なパッケージのインストール
-RUN apt-get update -y && apt-get install -y build-essential vim \
-    wget curl git zip gcc make openssl \
-    libssl-dev libbz2-dev libreadline-dev \
-    libsqlite3-dev python3-tk tk-dev \
-    libfreetype6-dev libffi-dev liblzma-dev
-
-# Node.jsのインストール（JupyterLab拡張用）
-RUN curl -sL https://deb.nodesource.com/setup_current.x | bash - && \
-    apt-get install -y --no-install-recommends nodejs && \
-    rm -rf /var/lib/apt/lists/*
-
-# ワークディレクトリを設定
 WORKDIR /bundle-flow
+RUN apt-get update -y && apt-get install -y --no-install-recommends \
+    git build-essential curl vim && rm -rf /var/lib/apt/lists/*
 
-# PyTorch (CPU版)とuvをインストール
-RUN pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu && \
-    pip install uv
+# 最小限のOSパッケージ（必要時のみ）
+RUN apt-get update -y && apt-get install -y --no-install-recommends \
+    git build-essential curl vim \
+ && rm -rf /var/lib/apt/lists/*
+
+# 追加Pythonツール
+RUN pip install -U pip uv
+
+# Python依存をビルド時に固定
+COPY requirements.txt .
+RUN pip install -U pip && pip install --no-cache-dir -r requirements.txt
+
+# 確認（ログにCUDA可否を出す）
+RUN python - <<'PY'\nimport torch;print('cuda:',torch.cuda.is_available())\nPY

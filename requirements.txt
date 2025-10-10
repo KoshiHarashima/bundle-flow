@@ -1,8 +1,6 @@
-torch>=2.0.0
-torchvision
 numpy
 matplotlib
-jupyter
 jupyterlab
+ipykernel
 black
 pytest
