@@ -4,6 +4,7 @@ I'm an exchange student at Northwestern University.
 This code was created for experiments in the field of economics, especially in multi-product auction theory.
 
 ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 This work is based on the folloing paper;   
 
 Wang, Tonghan, Yanchen Jiang, and David C. Parkes. 2025. “BundleFlow: Deep Menus for Combinatorial Auctions by Diffusion-Based Optimization.” arXiv [Cs.GT]. arXiv. http://arxiv.org/abs/2502.15283.
@@ -28,12 +29,49 @@ bundle-flow/
 │   ├── train_stage1
 │   ├── train_stage2
 │── README.md
-├── tests/ #テスト用プログラム
-│   ├── test_online/
-│   ├── test_beacon/
-│   ├── test_fitbit/
-│   └── test_questionnaire/
 ├── requirements.txt         
 └── .devcontainer         
+
+
+First,  
+
+pip install requirements.txt  
+
+Second, run scripts.train_stage1  
+
+python -m scripts.train_stage1 \
+  --m 50 \
+  --D 8 \
+  --iters 60000 \
+  --batch 1024 \
+  --lr 5e-3 \
+  --sigma_z 0.05 \
+  --out_dir checkpoints
+
+
+Third, run scripts.train_stage2  
+
+python -m scripts.train_stage2 \
+  --flow_ckpt checkpoints/flow_stage1_final.pt \
+  --m 50 \
+  --K 512 \
+  --D 8 \
+  --iters 20000 \
+  --batch 128 \
+  --lr 0.3 \
+  --a 20 \
+  --n_val 5000 \
+  --out_dir checkpoints
+
+
+If you want to use CATS, run this!  
+
+python -m scripts.train_stage2 \
+  --flow_ckpt checkpoints/flow_stage1_final.pt \
+  --cats_glob "cats_out/*.txt" \
+  --m 50 \
+  --K 512 \
+  --D 8 \
+  --iters 20000
+
 ```
->>>>>>> 425f99f (update)

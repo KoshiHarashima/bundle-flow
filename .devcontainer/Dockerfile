@@ -1,24 +1,17 @@
-FROM nvcr.io/nvidia/pytorch:23.04-py3
+FROM python:3.10-slim
 
+# タイムゾーン設定
 ENV TZ=Asia/Tokyo
-RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+RUN ln -snf /usr/share/zoneinfo/Asia/Tokyo /etc/localtime && echo Asia/Tokyo > /etc/timezone
 
-ARG work_dir="/workspace"
-
-# ENV PYTHON_VERSION 3.10.9
-# ENV HOME /root
-# ENV PYTHON_ROOT $HOME/local/python-$PYTHON_VERSION
-# ENV PATH $PYTHON_ROOT/bin:$PATH
-# ENV PYENV_ROOT $HOME/.pyenv
-
-#gitのインストール
+# 必要なパッケージのインストール
 RUN apt-get update -y && apt-get install -y build-essential vim \
     wget curl git zip gcc make openssl \
     libssl-dev libbz2-dev libreadline-dev \
-    libsqlite3-dev python3-tk tk-dev python-tk \
+    libsqlite3-dev python3-tk tk-dev \
     libfreetype6-dev libffi-dev liblzma-dev
 
-# Install nodejs for JupyterLab extension
+# Node.jsのインストール（JupyterLab拡張用）
 RUN curl -sL https://deb.nodesource.com/setup_current.x | bash - && \
     apt-get install -y --no-install-recommends nodejs && \
     rm -rf /var/lib/apt/lists/*
@@ -26,5 +19,6 @@ RUN curl -sL https://deb.nodesource.com/setup_current.x | bash - && \
 # ワークディレクトリを設定
 WORKDIR /bundle-flow
 
-# uvをインストール
-RUN pip install uv
+# PyTorch (CPU版)とuvをインストール
+RUN pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu && \
+    pip install uv
