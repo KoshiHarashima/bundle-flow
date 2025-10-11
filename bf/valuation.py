@@ -63,24 +63,28 @@ class XORValuation:
     def batch_value(self, S_bool: torch.Tensor) -> torch.Tensor:
         """
         バッチ版 v(S_b)（Eq.(21), Eq.(19) の高速化）。S_bool: (B,m) ∈ {0,1}^m
+        シンプルなループ実装（確実に動作する）
         """
         B, m = S_bool.shape
-        out = torch.zeros(B, dtype=torch.float32, device=S_bool.device)
-        # 事前に各行のマスク化
+        device = S_bool.device
+        
+        # 各行をマスクに変換
+        S_cpu = S_bool.cpu()
         masks = []
         for b in range(B):
-            masks.append(_tensor_to_mask(S_bool[b]))
-        # 各原子を走査
-        for mk, p in self.atoms:
-            inv = (~torch.tensor(masks, dtype=torch.int64, device=S_bool.device)) & ((1 << m) - 1)
-            ok = (mk & inv.cpu().numpy().item() if B == 1 else None)  # 単一B高速化
-            if B == 1:
-                if ok == 0:
-                    out[0] = torch.maximum(out[0], torch.tensor(p, device=S_bool.device))
-            else:
-                # ベクトル化（ビット演算はPython intで扱い、必要箇所のみ変換）
-                for b in range(B):
-                    if (mk & (~masks[b])) == 0:
-                        if p > float(out[b]):
-                            out[b] = p
+            masks.append(_tensor_to_mask(S_cpu[b]))
+        
+        # 出力を初期化
+        out = torch.zeros(B, dtype=torch.float32, device=device)
+        
+        # 各バッチについて、value()と同じロジックを実行
+        for b in range(B):
+            val = 0.0
+            for atom_mask, price in self.atoms:
+                # T⊆S の判定: (atom_mask & ~Sm) == 0
+                if (atom_mask & (~masks[b])) == 0:
+                    if price > val:
+                        val = price
+            out[b] = val
+        
         return out

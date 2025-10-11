@@ -51,14 +51,191 @@ def utility_element(flow, v, elem: MenuElement, t_grid: torch.Tensor) -> torch.T
     u = torch.exp(M) * weighted_sum - elem.beta
     return u
 
+# バッチ処理版：全menu elementsを一度に処理
+# U[b,k] = u^(k)(v_b)  （Eq.(21) を全組で）
+def utilities_matrix_batched(flow, V: List, menu: List[MenuElement], t_grid: torch.Tensor, verbose: bool = False, debug: bool = False) -> torch.Tensor:
+    """
+    高速バッチ処理版：全menu elementsのmusを統合して一度に処理
+    速度: O(B * K * D) → O(B * 1)のflow_forward呼び出し
+    """
+    K = len(menu)
+    B = len(V)
+    device = t_grid.device
+    
+    if verbose:
+        print(f"  [Batched] Collecting all mus from {K} menu elements...", flush=True)
+    
+    # null要素（最後の要素、D=1）を分離
+    menu_main = menu[:-1]  # 通常のメニュー要素（D=8など）
+    null_elem = menu[-1]   # null要素（D=1）
+    K_main = len(menu_main)
+    
+    # 通常のメニュー要素のmusを統合: [(D, m)] * K_main -> (K_main, D, m)
+    all_mus = torch.stack([elem.mus for elem in menu_main])  # (K_main, D, m)
+    all_weights = torch.stack([elem.weights for elem in menu_main])  # (K_main, D)
+    all_betas = torch.stack([elem.beta for elem in menu_main])  # (K_main,)
+    
+    K_main, D, m = all_mus.shape
+    
+    if verbose:
+        print(f"  [Batched] Running flow_forward on {K_main*D} bundles at once...", flush=True)
+    
+    # 全てのμをバッチ処理: (K_main, D, m) -> (K_main*D, m)
+    mus_flat = all_mus.view(K_main * D, m)
+    sT_flat = flow.flow_forward(mus_flat, t_grid)  # (K_main*D, m) - 一度の呼び出し！
+    s_flat = flow.round_to_bundle(sT_flat)  # (K_main*D, m)
+    
+    # log_density_weightもバッチ処理
+    log_density_flat = flow.log_density_weight(mus_flat, t_grid)  # (K_main*D,)
+    log_density = log_density_flat.view(K_main, D)  # (K_main, D)
+    
+    # null要素も一度に処理
+    null_sT = flow.flow_forward(null_elem.mus, t_grid)  # (1, m)
+    null_s = flow.round_to_bundle(null_sT)  # (1, m)
+    null_log_density = flow.log_density_weight(null_elem.mus, t_grid)  # (1,)
+    null_weight = null_elem.weights  # (1,)
+    null_beta = null_elem.beta  # scalar
+    
+    # 各valuationについて効用を計算
+    U = torch.zeros(B, K, device=device, dtype=torch.float32)
+    
+    for i, v in enumerate(V):
+        if verbose and i % 10 == 0:
+            print(f"  [Batched] Processing valuation {i+1}/{B}...", flush=True)
+        
+        # 全bundlesの価値を一度に計算
+        # 注意：s_flatをCPUに転送してから評価（デバイス問題を回避）
+        s_flat_cpu = s_flat.cpu()
+        if hasattr(v, 'batch_value'):
+            vals_flat = v.batch_value(s_flat_cpu)  # (K_main*D,)
+            if debug and i == 0:
+                print(f"  [DEBUG] batch_value() returned: min={vals_flat.min().item():.4f}, max={vals_flat.max().item():.4f}, mean={vals_flat.mean().item():.4f}", flush=True)
+                print(f"  [DEBUG] Non-zero values in batch_value: {(vals_flat > 0).sum().item()} out of {len(vals_flat)}", flush=True)
+            vals_flat = vals_flat.to(device)  # GPUに戻す
+        else:
+            # fallback: 逐次処理
+            vals_flat = torch.tensor([v.value(s_flat_cpu[j]) for j in range(K_main*D)],
+                                    device=device, dtype=torch.float32)
+        
+        vals = vals_flat.view(K_main, D)  # (K_main, D)
+        
+        # 各menu elementの効用を計算（log-sum-exp）
+        log_w = torch.log(all_weights + 1e-10)  # (K_main, D)
+        log_weights = log_w + log_density  # (K_main, D)
+        
+        # デバッグ: 最初のvaluationで詳細を出力（debugフラグが立っているとき）
+        if debug and i == 0:
+            # bundleの中身を確認
+            print(f"  [DEBUG] s_flat shape: {s_flat.shape}, unique values: {torch.unique(s_flat).tolist()}", flush=True)
+            print(f"  [DEBUG] s_flat[0:5]: {s_flat[0:5].tolist()}", flush=True)
+            print(f"  [DEBUG] Number of valuation atoms: {len(v.atoms)}", flush=True)
+            if len(v.atoms) > 0:
+                print(f"  [DEBUG] First atom: mask={v.atoms[0][0]}, price={v.atoms[0][1]:.4f}", flush=True)
+                # このvaluationの最大可能価値（最も高いatomの価格）
+                max_possible_value = max(price for _, price in v.atoms)
+                print(f"  [DEBUG] Max possible value from this valuation: {max_possible_value:.4f}", flush=True)
+            else:
+                print(f"  [DEBUG] WARNING: This valuation has NO atoms!", flush=True)
+            
+            # value()メソッドで直接テスト（CPUに転送してから）
+            test_val_direct = v.value(s_flat_cpu[0])
+            print(f"  [DEBUG] v.value(s_flat_cpu[0]) = {test_val_direct:.4f}", flush=True)
+            
+            # マスクの詳細を確認
+            from bf.valuation import _tensor_to_mask
+            test_mask = _tensor_to_mask(s_flat_cpu[0])
+            print(f"  [DEBUG] _tensor_to_mask(s_flat_cpu[0]) = {test_mask}", flush=True)
+            
+            # 比較：GPU tensorで試すとどうなるか
+            try:
+                test_mask_gpu = _tensor_to_mask(s_flat[0])
+                print(f"  [DEBUG] GPU tensor mask: {test_mask_gpu}, CPU tensor mask: {test_mask}, equal? {test_mask_gpu == test_mask}", flush=True)
+            except Exception as e:
+                print(f"  [DEBUG] GPU tensor failed: {e}", flush=True)
+            print(f"  [DEBUG] bin(test_mask) = {bin(test_mask)}", flush=True)
+            print(f"  [DEBUG] First atom mask = {v.atoms[0][0]}, bin = {bin(v.atoms[0][0])}", flush=True)
+            
+            # 手動でT⊆Sをチェック
+            atom_mask = v.atoms[0][0]
+            test_subset = (atom_mask & (~test_mask)) == 0
+            print(f"  [DEBUG] Is atom[0] ⊆ s_flat[0]? {test_subset} (atom_mask & ~test_mask = {atom_mask & (~test_mask)})", flush=True)
+            
+            # 全てのatomをチェック
+            matching_atoms = []
+            print(f"  [DEBUG] Checking all {len(v.atoms)} atoms...", flush=True)
+            for idx, (atom_mask, price) in enumerate(v.atoms[:5]):  # 最初の5個だけ
+                check_result = (atom_mask & (~test_mask))
+                is_subset = check_result == 0
+                print(f"  [DEBUG]   Atom {idx}: mask={atom_mask}, price={price:.4f}, atom&~test={check_result}, is_subset={is_subset}", flush=True)
+                if is_subset:
+                    matching_atoms.append((atom_mask, price))
+            
+            # 全atomをチェック
+            for atom_mask, price in v.atoms:
+                if (atom_mask & (~test_mask)) == 0:
+                    matching_atoms.append((atom_mask, price))
+            
+            print(f"  [DEBUG] Number of matching atoms: {len(matching_atoms)}", flush=True)
+            if len(matching_atoms) > 0:
+                print(f"  [DEBUG] Max matching price: {max(p for _, p in matching_atoms):.4f}", flush=True)
+            
+            # 逆に、test_maskがどのatomのスーパーセットか確認
+            print(f"  [DEBUG] Checking if test_mask is a superset of any atom...", flush=True)
+            for idx, (atom_mask, price) in enumerate(v.atoms[:3]):
+                # T⊆Sの判定が正しいか確認
+                subset_check = (atom_mask & (~test_mask)) == 0
+                print(f"  [DEBUG]   Atom {idx}: T⊆S? {subset_check}", flush=True)
+                # ビット数を確認
+                atom_bits = bin(atom_mask).count('1')
+                test_bits = bin(test_mask).count('1')
+                print(f"  [DEBUG]     Atom has {atom_bits} bits set, test has {test_bits} bits set", flush=True)
+            
+            # batch_value()の結果
+            print(f"  [DEBUG] vals range: [{vals.min().item():.4f}, {vals.max().item():.4f}]", flush=True)
+            print(f"  [DEBUG] vals[0:5]: {vals[0, :].tolist()}", flush=True)
+            
+            # vals_flatの最初の10個
+            print(f"  [DEBUG] vals_flat[0:10]: {vals_flat[0:10].tolist()}", flush=True)
+            
+            print(f"  [DEBUG] log_w range: [{log_w.min().item():.4f}, {log_w.max().item():.4f}]", flush=True)
+            print(f"  [DEBUG] log_density range: [{log_density.min().item():.4f}, {log_density.max().item():.4f}]", flush=True)
+            print(f"  [DEBUG] log_weights range: [{log_weights.min().item():.4f}, {log_weights.max().item():.4f}]", flush=True)
+        
+        # log-sum-exp per menu element
+        M = torch.max(log_weights, dim=1, keepdim=True)[0]  # (K_main, 1)
+        weighted_sum = (torch.exp(log_weights - M) * vals).sum(dim=1)  # (K_main,)
+        u_main = torch.exp(M.squeeze(1)) * weighted_sum - all_betas  # (K_main,)
+        
+        if debug and i == 0:
+            print(f"  [DEBUG] M range: [{M.min().item():.4f}, {M.max().item():.4f}]", flush=True)
+            print(f"  [DEBUG] exp(M) range: [{torch.exp(M).min().item():.4e}, {torch.exp(M).max().item():.4e}]", flush=True)
+            print(f"  [DEBUG] weighted_sum range: [{weighted_sum.min().item():.4f}, {weighted_sum.max().item():.4f}]", flush=True)
+            print(f"  [DEBUG] u_main range: [{u_main.min().item():.4f}, {u_main.max().item():.4f}]", flush=True)
+            print(f"  [DEBUG] all_betas range: [{all_betas.min().item():.4f}, {all_betas.max().item():.4f}]", flush=True)
+        
+        # null要素の効用を計算（事前計算済みのデータを使用）
+        if hasattr(v, 'value'):
+            null_val = v.value(null_s[0])
+        else:
+            null_val = 0.0
+        log_w_null = torch.log(null_weight + 1e-10)
+        log_weight_null = log_w_null + null_log_density
+        u_null = torch.exp(log_weight_null[0]) * null_val - null_beta
+        
+        # 結合: [u_main, u_null]
+        U[i, :-1] = u_main
+        U[i, -1] = u_null
+    
+    if verbose:
+        print(f"  [Batched] Utilities computed: {U.shape}", flush=True)
+    
+    return U  # (B, K)
+
 # バリュー集合Vと、全てのメニューlに関して、効用を行列表示している。
 # U[b,k] = u^(k)(v_b)  （Eq.(21) を全組で）
-def utilities_matrix(flow, V: List, menu: List[MenuElement], t_grid: torch.Tensor) -> torch.Tensor:
-    out = []
-    for v in V:
-        row = [utility_element(flow, v, elem, t_grid) for elem in menu]
-        out.append(torch.stack(row))
-    return torch.stack(out)                      # (B,K)
+def utilities_matrix(flow, V: List, menu: List[MenuElement], t_grid: torch.Tensor, verbose: bool = False, debug: bool = False) -> torch.Tensor:
+    # バッチ処理版を使用
+    return utilities_matrix_batched(flow, V, menu, t_grid, verbose=verbose, debug=debug)
 
 # 学習時の連続割り当てを返す。
 # z^(k)(v) = SoftMax_k( λ · u^(k)(v) )  （Eq.(23)）
@@ -66,12 +243,18 @@ def soft_assignment(U: torch.Tensor, lam: float) -> torch.Tensor:
     return torch.softmax(lam * U, dim=1)
 
 # 期待損益の負の値を最小化している。
-def revenue_loss(flow, V: List, menu: List[MenuElement], t_grid: torch.Tensor, lam: float) -> torch.Tensor:
+def revenue_loss(flow, V: List, menu: List[MenuElement], t_grid: torch.Tensor, lam: float, verbose: bool = False, debug: bool = False) -> torch.Tensor:
     # LRev = -(1/|V|) Σ_v Σ_k z_k(v) β_k  （Eq.(22)）
-    U = utilities_matrix(flow, V, menu, t_grid)          # (B,K)
+    if verbose:
+        print(f"  Computing utilities matrix ({len(V)} valuations × {len(menu)} menu elements)...", flush=True)
+    U = utilities_matrix(flow, V, menu, t_grid, verbose=verbose, debug=debug)          # (B,K)
+    if verbose:
+        print(f"  Computing soft assignment...", flush=True)
     Z = soft_assignment(U, lam)                          # (B,K)
     beta = torch.stack([elem.beta for elem in menu])     # (K,)
     rev = (Z * beta.unsqueeze(0)).sum(dim=1).mean()
+    if verbose:
+        print(f"  Revenue: {-rev.item():.6f}", flush=True)
     return -rev
 
 # テスト時

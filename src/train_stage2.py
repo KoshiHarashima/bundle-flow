@@ -171,6 +171,9 @@ def train_stage2(args):
 
     # メニュー初期化（各要素は価格 β と Dirac混合 α0；Eq.(21)） :contentReference[oaicite:7]{index=7}
     menu = build_menu(args.m, args.K, args.D)
+    # メニュー要素をdeviceに移動
+    for elem in menu:
+        elem.to(device)
     params = []
     for elem in menu:
         for p in elem.parameters():
@@ -180,6 +183,23 @@ def train_stage2(args):
 
     # 価値関数データ（V を train/test に分割） :contentReference[oaicite:9]{index=9}
     V_all = make_dataset(args)
+    
+    # デバッグ：最初のvaluationを詳しく確認
+    if len(V_all) > 0:
+        print(f"[Stage2] Dataset check: {len(V_all)} valuations created", flush=True)
+        v0 = V_all[0]
+        print(f"[Stage2] First valuation has {len(v0.atoms)} atoms", flush=True)
+        if len(v0.atoms) > 0:
+            atom0_mask, atom0_price = v0.atoms[0]
+            atom0_bits = bin(atom0_mask).count('1')
+            print(f"[Stage2] First atom: {atom0_bits} items, price={atom0_price:.4f}, mask={atom0_mask}", flush=True)
+            # テスト：全てのアイテムを持つbundleの価値
+            all_items_bundle = torch.ones(args.m, device=device)
+            test_val = v0.value(all_items_bundle)
+            print(f"[Stage2] Value of bundle with ALL {args.m} items: {test_val:.4f}", flush=True)
+            if test_val == 0.0:
+                print(f"[Stage2] WARNING: Even with all items, value is 0! This suggests a bug.", flush=True)
+    
     train, test = train_test_split(V_all, train_ratio=0.95, seed=args.seed)
 
     # 時間グリッド（Eq.(12),(20) の離散化）
@@ -201,18 +221,36 @@ def train_stage2(args):
         lam = lambda_schedule(it, args.iters, start=args.lam_start, end=args.lam_end)
 
         # 収益損失（Eq.(22)）を最小化。内部で効用 u^(k)(v) を Eq.(21) で厳密計算。
-        loss = revenue_loss(flow, batch, menu, t_grid, lam=lam)
+        # ログ出力時にデバッグ情報を表示
+        is_log_iter = (it % args.log_every == 0)
+        verbose = (it == 1)
+        if verbose:
+            print(f"\n[Iteration {it}] Starting forward pass...", flush=True)
+        loss = revenue_loss(flow, batch, menu, t_grid, lam=lam, verbose=verbose, debug=is_log_iter)
 
         opt.zero_grad()
         loss.backward()
+        if verbose:
+            print(f"  Backward pass complete. Clipping gradients and updating parameters...", flush=True)
         if args.grad_clip and args.grad_clip > 0:
             nn.utils.clip_grad_norm_(params, args.grad_clip)
         opt.step()
+        if verbose:
+            print(f"  Iteration {it} complete!\n", flush=True)
 
         ema = loss.item() if ema is None else 0.9 * ema + 0.1 * loss.item()
+        
+        # 簡易進捗（毎10 iterationごと）
+        if it % 10 == 0 and it % args.log_every != 0:
+            print(f"  [{it}/{args.iters}] ...", end='\r', flush=True)
+        
+        # 詳細ログ
         if it % args.log_every == 0:
             dt = time.time() - t0
-            print(f"[{it}/{args.iters}] LRev={loss.item():.6f} ema={ema:.6f} lam={lam:.4f} time={dt:.1f}s", flush=True)
+            iter_per_sec = it / dt if dt > 0 else 0
+            eta_sec = (args.iters - it) / iter_per_sec if iter_per_sec > 0 else 0
+            eta_min = eta_sec / 60
+            print(f"[{it}/{args.iters}] LRev={loss.item():.6f} ema={ema:.6f} lam={lam:.4f} time={dt:.1f}s speed={iter_per_sec:.2f}it/s ETA={eta_min:.1f}min", flush=True)
         
         # 弱い再初期化（未使用要素の探索維持）
         if args.reinit_every > 0 and it % args.reinit_every == 0:

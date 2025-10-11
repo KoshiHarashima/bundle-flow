@@ -30,7 +30,7 @@ python -m src.train_stage1 \
   --use_scheduler --use_csv \
   --out_dir checkpoints
 
-# Stage 2（改善を有効化）
+# Stage 2
 python src/train_stage2.py \
   --flow_ckpt checkpoints/flow_stage1_final.pt \
   --m 50 --K 512 --D 8 --iters 20000 \
