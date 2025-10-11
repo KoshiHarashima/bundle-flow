@@ -38,6 +38,95 @@ def build_menu(m: int, K: int, D: int) -> List[MenuElement]:
     menu.append(make_null_element(m))
     return menu
 
+# ---------- μのウォームスタート ----------
+@torch.no_grad()
+def warmstart_mus(flow: FlowModel, menu: List[MenuElement], t_grid: torch.Tensor, 
+                  n_grid: int = 100, seed: int = 42):
+    """
+    フローで代表束を生成し、μを初期化（ウォームスタート）
+    効果：異なる束領域にμを散らし、初期収束を加速
+    """
+    device = t_grid.device
+    m = flow.m
+    torch.manual_seed(seed)
+    
+    # ランダムなμグリッドを生成（[0,1]^m の一様サンプル）
+    mu_grid = torch.rand(n_grid, m, device=device)
+    
+    # flow_forward → round して代表束を得る
+    sT_grid = flow.flow_forward(mu_grid, t_grid)  # (n_grid, m)
+    bundles = flow.round_to_bundle(sT_grid)       # (n_grid, m)
+    
+    # 重複を削除（ユニークな束のみ）
+    bundles_unique = torch.unique(bundles, dim=0)
+    print(f"[WarmStart] Generated {len(bundles_unique)} unique bundles from {n_grid} samples")
+    
+    # 各メニュー要素のμを代表束から初期化
+    for k, elem in enumerate(menu[:-1]):  # 最後のnull要素を除く
+        D = elem.mus.shape[0]
+        # ランダムに代表束を選択してμとして配置
+        if len(bundles_unique) >= D:
+            idx = torch.randperm(len(bundles_unique))[:D]
+            elem.mus.data.copy_(bundles_unique[idx])
+        else:
+            # 代表束が足りない場合は繰り返し使用
+            idx = torch.randint(0, len(bundles_unique), (D,))
+            elem.mus.data.copy_(bundles_unique[idx])
+        
+        # 小さなノイズを追加（探索のため）
+        elem.mus.data += 0.05 * torch.randn_like(elem.mus.data)
+        elem.mus.data.clamp_(0.0, 1.0)
+    
+    print(f"[WarmStart] Initialized μ for {len(menu)-1} menu elements")
+
+# ---------- 弱い再初期化 ----------
+@torch.no_grad()
+def reinit_unused_elements(flow: FlowModel, menu: List[MenuElement], Z: torch.Tensor,
+                           t_grid: torch.Tensor, threshold: float = 0.01):
+    """
+    選択確率が低い要素のμを再初期化（探索の質を維持）
+    Z: (B, K+1) の選択確率行列
+    threshold: この値未満の平均選択確率を持つ要素を再初期化
+    """
+    device = t_grid.device
+    m = flow.m
+    
+    # 各要素の平均選択確率を計算
+    z_mean = Z[:, :-1].mean(dim=0)  # (K,) 最後のnull要素を除く
+    
+    # 閾値未満の要素を特定
+    unused_mask = z_mean < threshold
+    n_unused = unused_mask.sum().item()
+    
+    if n_unused > 0:
+        print(f"[ReInit] Found {n_unused} unused elements (z_mean < {threshold}), reinitializing...")
+        
+        # 代表束を生成
+        mu_grid = torch.rand(50, m, device=device)
+        sT_grid = flow.flow_forward(mu_grid, t_grid)
+        bundles = flow.round_to_bundle(sT_grid)
+        bundles_unique = torch.unique(bundles, dim=0)
+        
+        # 未使用要素のμを再初期化
+        for k, elem in enumerate(menu[:-1]):
+            if unused_mask[k]:
+                D = elem.mus.shape[0]
+                if len(bundles_unique) >= D:
+                    idx = torch.randperm(len(bundles_unique))[:D]
+                    elem.mus.data.copy_(bundles_unique[idx])
+                else:
+                    idx = torch.randint(0, len(bundles_unique), (D,))
+                    elem.mus.data.copy_(bundles_unique[idx])
+                
+                # ノイズ追加
+                elem.mus.data += 0.05 * torch.randn_like(elem.mus.data)
+                elem.mus.data.clamp_(0.0, 1.0)
+                
+                # 価格βも軽く再初期化
+                elem.beta.data.fill_(0.1 * torch.randn(1).item())
+    
+    return n_unused
+
 # ---------- データ ----------
 def make_dataset(args) -> List[XORValuation]:
     if args.cats_glob:
@@ -73,6 +162,10 @@ def train_stage2(args):
 
     # 時間グリッド（Eq.(12),(20) の離散化）
     t_grid = torch.linspace(0.0, 1.0, steps=args.ode_steps, device=device)
+    
+    # μのウォームスタート（代表束から初期化）
+    if args.warmstart:
+        warmstart_mus(flow, menu, t_grid, n_grid=args.warmstart_grid, seed=args.seed)
 
     # ループ
     ema = None
@@ -98,6 +191,15 @@ def train_stage2(args):
         if it % args.log_every == 0:
             dt = time.time() - t0
             print(f"[{it}/{args.iters}] LRev={loss.item():.6f} ema={ema:.6f} lam={lam:.4f} time={dt:.1f}s", flush=True)
+        
+        # 弱い再初期化（未使用要素の探索維持）
+        if args.reinit_every > 0 and it % args.reinit_every == 0:
+            # 現在のバッチで選択確率を計算
+            with torch.no_grad():
+                U_reinit = utilities_matrix(flow, batch, menu, t_grid)
+                Z_reinit = torch.softmax(lam * U_reinit, dim=1)
+                n_reinit = reinit_unused_elements(flow, menu, Z_reinit, t_grid, 
+                                                  threshold=args.reinit_threshold)
 
         # 途中保存
         if args.ckpt_every > 0 and it % args.ckpt_every == 0:
@@ -139,11 +241,11 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--flow_ckpt", type=str, default="checkpoints/flow_stage1_final.pt")
     ap.add_argument("--m", type=int, default=50)
-    ap.add_argument("--K", type=int, default=512)      # 実験既定は m≤100で5k/それ以上で20k。:contentReference[oaicite:11]{index=11}
-    ap.add_argument("--D", type=int, default=8)        # 有限支持サイズ（Dirac混合の個数）。:contentReference[oaicite:12]{index=12}
+    ap.add_argument("--K", type=int, default=512)      # 実験既定は m≤100で5k/それ以上で20k。
+    ap.add_argument("--D", type=int, default=8)        # 有限支持サイズ（Dirac混合の個数）。
     ap.add_argument("--iters", type=int, default=20000)
     ap.add_argument("--batch", type=int, default=128)
-    ap.add_argument("--lr", type=float, default=3e-1)  # Setup: 0.3 を推奨。:contentReference[oaicite:13]{index=13}
+    ap.add_argument("--lr", type=float, default=3e-1)  # Setup: 0.3 を推奨。
     ap.add_argument("--lam_start", type=float, default=1e-3)
     ap.add_argument("--lam_end", type=float, default=2e-1)
     ap.add_argument("--ode_steps", type=int, default=25)
@@ -157,9 +259,15 @@ if __name__ == "__main__":
     ap.add_argument("--cats_glob", type=str, default="")  # 例: "cats_out/*.txt"
     ap.add_argument("--max_files", type=int, default=None)
     ap.add_argument("--n_val", type=int, default=5000)    # 合成の本数
-    ap.add_argument("--a", type=int, default=20)          # 合成XORの原子数（Table 4 を模倣）:contentReference[oaicite:14]{index=14}
+    ap.add_argument("--a", type=int, default=20)          # 合成XORの原子数（Table 4 を模倣）
     ap.add_argument("--eval_n", type=int, default=1000)
     ap.add_argument("--cpu", action="store_true")
+    
+    # μのウォームスタート＋再初期化
+    ap.add_argument("--warmstart", action="store_true", help="Enable μ warmstart from representative bundles")
+    ap.add_argument("--warmstart_grid", type=int, default=200, help="Number of random μ samples for warmstart")
+    ap.add_argument("--reinit_every", type=int, default=2000, help="Reinitialize unused elements every N steps (0=disable)")
+    ap.add_argument("--reinit_threshold", type=float, default=0.01, help="Reinit elements with z_mean < threshold")
 
     args = ap.parse_args()
     train_stage2(args)

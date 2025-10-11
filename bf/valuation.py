@@ -41,7 +41,7 @@ class XORValuation:
         return cls(m, arr)
 
     # ---- 値関数 v(S) ----------------------------------------------------------
-
+    
     def value(self, s_bool: Sequence[float] | torch.Tensor) -> float:
         """
         v(S) = max_{(T, bid)} { bid : T ⊆ S }  （XORの意味；Sec.2）

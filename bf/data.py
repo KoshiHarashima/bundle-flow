@@ -45,7 +45,7 @@ def _parse_line_to_bundle_and_price(line: str, m: int) -> List[Tuple[str, List[i
 def parse_cats_output_file(path: str, m: int) -> Dict[str, XORValuation]:
     """
     1ファイル → {dummy_id: XORValuation}
-    CATSは「bundle-bidのペアを出力し、同一ダミーが同一入札者のXORを構成」（Sec.5.1）。:contentReference[oaicite:3]{index=3}
+    CATSは「bundle-bidのペアを出力し、同一ダミーが同一入札者のXORを構成」（Sec.5.1）。
     """
     atoms_by_dummy: Dict[str, List[Tuple[List[int], float]]] = {}
     with open(path, 'r', encoding='utf-8', errors='ignore') as f:
@@ -81,7 +81,7 @@ def load_cats_dir(dir_or_glob: str, m: int, keep_dummy: Optional[str] = None,
 
 def train_test_split(V: List[XORValuation], train_ratio: float = 0.95, seed: int = 0):
     """
-    95/5 分割（Sec.5.1の設定）。:contentReference[oaicite:5]{index=5}
+    95/5 分割（Sec.5.1の設定）。
     """
     rng = random.Random(seed)
     idx = list(range(len(V)))
@@ -91,11 +91,11 @@ def train_test_split(V: List[XORValuation], train_ratio: float = 0.95, seed: int
     test  = [V[i] for i in idx[k:]]
     return train, test
 
-# ---------- Synthetic XOR generators (Table 4 再現補助) ------------------------
+# ---------- Synthetic XOR generators  ------------------------
 
 def gen_uniform_iid_xor(m: int, a: int, low: float = 0.0, high: float = 1.0, seed: Optional[int] = None) -> XORValuation:
     """
-    合成XOR（a原子）。Table 4 の「XOR原子数a」を模した簡易生成器（評価の分布は設定依存）。:contentReference[oaicite:6]{index=6}
+    [0.0, 1.0]のi.i.d.でvaluationが出る場合についてのデータを作成する
     """
     rng = random.Random(seed)
     atoms: List[Tuple[List[int], float]] = []
