@@ -1,24 +1,33 @@
-# 例：CUDA 12.x + PyTorch 2.x のタグを選ぶ
-FROM nvcr.io/nvidia/pytorch:24.06-py3
+# PyTorch + CUDA環境
+FROM pytorch/pytorch:2.1.0-cuda12.1-cudnn8-devel
 
-ENV TZ=Asia/Tokyo
-RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+# 環境変数の設定
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PYTHONUNBUFFERED=1
 
+# 必要なシステムパッケージをインストール
+RUN apt-get update && apt-get install -y \
+    git \
+    curl \
+    wget \
+    vim \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# 作業ディレクトリの設定
 WORKDIR /bundle-flow
-RUN apt-get update -y && apt-get install -y --no-install-recommends \
-    git build-essential curl vim && rm -rf /var/lib/apt/lists/*
 
-# 最小限のOSパッケージ（必要時のみ）
-RUN apt-get update -y && apt-get install -y --no-install-recommends \
-    git build-essential curl vim \
- && rm -rf /var/lib/apt/lists/*
+# CUDAが利用可能かチェックするためのスクリプト
+RUN echo '#!/bin/bash\n\
+    echo "=== GPU Status ==="\n\
+    nvidia-smi\n\
+    echo ""\n\
+    echo "=== PyTorch GPU Status ==="\n\
+    python -c "import torch; print(f\"PyTorch version: {torch.__version__}\"); print(f\"CUDA available: {torch.cuda.is_available()}\"); print(f\"CUDA version: {torch.version.cuda}\"); print(f\"cuDNN version: {torch.backends.cudnn.version()}\"); print(f\"Number of GPUs: {torch.cuda.device_count()}\"); [print(f\"GPU {i}: {torch.cuda.get_device_name(i)}\") for i in range(torch.cuda.device_count())]"\n\
+    ' > /usr/local/bin/check-gpu && chmod +x /usr/local/bin/check-gpu
 
-# 追加Pythonツール
-RUN pip install -U pip uv
+# デフォルトのシェルをbashに設定
+SHELL ["/bin/bash", "-c"]
 
-# Python依存をビルド時に固定
-COPY requirements.txt .
-RUN pip install -U pip && pip install --no-cache-dir -r requirements.txt
-
-# 確認（ログにCUDA可否を出す）
-RUN python - <<'PY'\nimport torch;print('cuda:',torch.cuda.is_available())\nPY
+# Pythonのパスを設定
+ENV PATH="/opt/conda/bin:${PATH}"

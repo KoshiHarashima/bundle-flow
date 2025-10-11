@@ -139,13 +139,35 @@ def make_dataset(args) -> List[XORValuation]:
 # ---------- 学習本体（Eq.(21)→(22) 最適化） ----------
 def train_stage2(args):
     device = torch.device("cuda" if torch.cuda.is_available() and not args.cpu else "cpu")
+    print(f"[Stage2] Using device: {device}", flush=True)
     seed_all(args.seed)
 
     # Stage 1 のフロー読込（φ 固定；Eq.(20)で使用） :contentReference[oaicite:6]{index=6}
+    print(f"[Stage2] Loading checkpoint: {args.flow_ckpt}", flush=True)
+    if os.path.exists(args.flow_ckpt):
+        file_size = os.path.getsize(args.flow_ckpt) / (1024 * 1024)  # MB
+        print(f"[Stage2] Checkpoint file size: {file_size:.2f} MB", flush=True)
+    else:
+        print(f"[Stage2] WARNING: Checkpoint file not found: {args.flow_ckpt}", flush=True)
+    
+    print(f"[Stage2] Starting torch.load()...", flush=True)
     ckpt = torch.load(args.flow_ckpt, map_location=device)
-    flow = FlowModel(m=ckpt["m"]).to(device)
+    print(f"[Stage2] Checkpoint loaded successfully", flush=True)
+    print(f"[Stage2] Checkpoint keys: {list(ckpt.keys())}", flush=True)
+    
+    # スペクトル正規化の有無を判定
+    print(f"[Stage2] Checking for spectral normalization...", flush=True)
+    use_spectral_norm = any('weight_orig' in k for k in ckpt["model"].keys())
+    print(f"[Stage2] use_spectral_norm = {use_spectral_norm}", flush=True)
+    
+    # チェックポイントと同じ設定でモデル作成
+    print(f"[Stage2] Creating FlowModel with m={ckpt['m']}, use_spectral_norm={use_spectral_norm}", flush=True)
+    flow = FlowModel(m=ckpt["m"], use_spectral_norm=use_spectral_norm).to(device)
+    print(f"[Stage2] Loading model state_dict...", flush=True)
     flow.load_state_dict(ckpt["model"])
+    print(f"[Stage2] Freezing FlowModel parameters...", flush=True)
     freeze_module(flow)  # φ を固定（Stage 2）
+    print(f"[Stage2] FlowModel ready (frozen)", flush=True)
 
     # メニュー初期化（各要素は価格 β と Dirac混合 α0；Eq.(21)） :contentReference[oaicite:7]{index=7}
     menu = build_menu(args.m, args.K, args.D)

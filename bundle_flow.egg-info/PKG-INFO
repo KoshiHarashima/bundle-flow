@@ -1,3 +1,30 @@
+Metadata-Version: 2.4
+Name: bundle-flow
+Version: 1.0.0
+Summary: BundleFlow: Deep Menus for Combinatorial Auctions by Diffusion-Based Optimization
+Home-page: https://github.com/yourusername/bundle-flow
+Author: Northwestern University Student
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Science/Research
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+Requires-Dist: torch>=1.9.0
+Requires-Dist: numpy>=1.19.0
+Requires-Dist: matplotlib>=3.3.0
+Dynamic: author
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
 # bundle-flow
 I'm an exchange student at Northwestern University.  
 

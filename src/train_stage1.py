@@ -79,7 +79,10 @@ def train_stage1(args):
         use_spectral_norm=args.use_spectral_norm,
         q_mode=args.q_mode,
         c_eta=args.c_eta,
-        eta_init_scale=args.eta_init_scale
+        eta_init_scale=args.eta_init_scale,
+        eta_temperature=args.eta_temperature,
+        use_eta_layernorm=args.use_eta_layernorm,
+        eta_integral_clip=args.eta_integral_clip
     ).to(device)
     opt = optim.Adam(flow.parameters(), lr=args.lr, weight_decay=args.weight_decay)  # Setup: LR=5e-3  :contentReference[oaicite:5]{index=5}
     
@@ -232,6 +235,12 @@ if __name__ == "__main__":
                     help="Scale factor for eta(t) range: [-c_eta, c_eta]. Increase if eta saturates (e.g., 5.0-10.0)")
     ap.add_argument("--eta_init_scale", type=float, default=0.01,
                     help="Initialization scale for EtaNet weights (smaller = less saturation)")
+    ap.add_argument("--eta_temperature", type=float, default=1.0,
+                    help="Temperature for tanh activation (5-10 to prevent saturation)")
+    ap.add_argument("--use_eta_layernorm", action="store_true",
+                    help="Use LayerNorm in EtaNet for stability")
+    ap.add_argument("--eta_integral_clip", type=float, default=10.0,
+                    help="Clip eta integral to prevent explosion (0 = no clip)")
     
     # 正則化
     ap.add_argument("--weight_decay", type=float, default=0.0, help="Weight decay (L2 regularization)")

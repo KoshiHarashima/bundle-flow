@@ -83,16 +83,21 @@ class QNet(nn.Module):
 
 
 class EtaNet(nn.Module):
-    def __init__(self, hidden: int = 64, depth: int = 2, init_scale: float = 0.01, c_eta: float = 2.0):
+    def __init__(self, hidden: int = 64, depth: int = 2, init_scale: float = 0.01, 
+                 c_eta: float = 2.0, temperature: float = 1.0, use_layernorm: bool = False):
         super().__init__()
         layers, in_dim = [], 1
         for _ in range(depth):
-            layers += [nn.Linear(in_dim, hidden), nn.Tanh()]
+            layers += [nn.Linear(in_dim, hidden)]
+            if use_layernorm:
+                layers += [nn.LayerNorm(hidden)]  # 安定化
+            layers += [nn.Tanh()]
             in_dim = hidden
         layers += [nn.Linear(in_dim, 1)]
         self.net = nn.Sequential(*layers)
         self.init_scale = init_scale
         self.c_eta = c_eta  # tanhゲートのスケール係数
+        self.temperature = temperature  # 温度付きtanh
         
         # 小さい初期値で初期化（スケール制御）
         for module in self.net.modules():
@@ -102,22 +107,27 @@ class EtaNet(nn.Module):
                     nn.init.zeros_(module.bias)
 
     def forward(self, t: torch.Tensor) -> torch.Tensor:
-        # η(t) = c_eta * tanh(eta_raw)（tanhゲートで爆発防止）
+        # η(t) = c_eta * tanh(eta_raw / τ)（温度付きtanhで線形領域を拡大）
         if t.dim() == 0:
             t = t[None]
         raw = self.net(t.unsqueeze(-1)).squeeze(-1)
-        return self.c_eta * torch.tanh(raw)
+        # 温度で除算してtanhの線形領域を広げる
+        return self.c_eta * torch.tanh(raw / self.temperature)
 
 
 # ---- Flow core ---------------------------------------------------------
 
 class FlowModel(nn.Module):
     def __init__(self, m: int, use_spectral_norm: bool = True, q_mode: str = 'full', 
-                 c_eta: float = 2.0, eta_init_scale: float = 0.01):
+                 c_eta: float = 2.0, eta_init_scale: float = 0.01,
+                 eta_temperature: float = 1.0, use_eta_layernorm: bool = False,
+                 eta_integral_clip: float = 10.0):
         super().__init__()
         self.m = m
         self.Q = QNet(m, use_spectral_norm=use_spectral_norm, q_mode=q_mode)
-        self.eta = EtaNet(init_scale=eta_init_scale, c_eta=c_eta)
+        self.eta = EtaNet(init_scale=eta_init_scale, c_eta=c_eta, 
+                         temperature=eta_temperature, use_layernorm=use_eta_layernorm)
+        self.eta_integral_clip = eta_integral_clip  # ∫ηの上限クリップ
 
     @torch.no_grad()
     def round_to_bundle(self, s_T: torch.Tensor, tau: float = 0.5) -> torch.Tensor:
@@ -139,7 +149,11 @@ class FlowModel(nn.Module):
     def eta_integral(self, t_grid: torch.Tensor) -> torch.Tensor:
         # ∫_0^T η(t) dt （台形則で近似；Eq.(12) のスカラー積分）
         eta_vals = self.eta(t_grid)                        # (T,)
-        return torch.trapz(eta_vals, t_grid)               # ()
+        integral = torch.trapz(eta_vals, t_grid)           # ()
+        # 物理的にクリップして発散を防ぐ
+        if self.eta_integral_clip > 0:
+            integral = torch.clamp(integral, -self.eta_integral_clip, self.eta_integral_clip)
+        return integral
 
     def log_density_weight(self, s0: torch.Tensor, t_grid: torch.Tensor) -> torch.Tensor:
         # log( exp( - Tr(Q(s0)) ∫ η ) ) = -Tr(Q(s0)) * ∫ η  （Eq.(12) のlog形、数値安定）

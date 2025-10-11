@@ -1,0 +1,41 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Git
+.git/
+.gitignore
+
+# IDE
+.vscode/
+.idea/
+
+# Checkpoints and logs
+checkpoints/
+*.pt
+*.pth
+*.log
+*.csv
+
+# Images
+*.png
+*.jpg
+*.jpeg
+
+# Documentation
+*.md
+!.devcontainer/README.md
+
+# OS
+.DS_Store
+Thumbs.db
+

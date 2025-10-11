@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # .envファイルから変数を読み込む
-if [ -f /workspaces/office-dx-platform/.devcontainer/.env ]; then
+if [ -f /bundle-flow/.devcontainer/.env ]; then
   # .envファイルを読み込む（変数にスペースが含まれている場合でも正しく処理できるように）
   set -a
   source /bundle-flow/.devcontainer/.env
@@ -19,5 +19,5 @@ if [ -f /workspaces/office-dx-platform/.devcontainer/.env ]; then
   fi
 else
   echo ".envファイルが見つかりません。Git設定をスキップします。"
-  echo "検索パス: /workspaces/office-dx-platform/.devcontainer/.env"
+  echo "検索パス: /bundle-flow/.devcontainer/.env"
 fi
