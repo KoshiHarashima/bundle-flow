@@ -152,15 +152,28 @@ def get_optimal_device(args):
         print(f"[Stage2] 🚀 Using GPU: {gpu_name}", flush=True)
         print(f"[Stage2] 💾 GPU Memory: {gpu_memory:.1f} GB", flush=True)
         
-        # GPU最適化設定
-        if "A100" in gpu_name or "V100" in gpu_name or "H100" in gpu_name:
+        # Colab A100用の最適化設定
+        if "A100" in gpu_name:
+            print(f"[Stage2] ⚡ Colab A100 detected! Applying maximum optimizations...", flush=True)
+            torch.backends.cudnn.benchmark = True
+            torch.backends.cudnn.deterministic = False
+            torch.cuda.empty_cache()
+            
+            # A100用のパラメータ自動調整
+            if not hasattr(args, 'auto_optimize') or args.auto_optimize:
+                print(f"[Stage2] 🔧 Auto-optimizing parameters for Colab A100...", flush=True)
+                args.batch = min(args.batch * 8, 2048)  # バッチサイズを8倍に
+                args.K = min(args.K * 4, 4096)  # メニュー要素数を4倍に
+                args.D = min(args.D * 4, 64)  # 特徴次元を4倍に
+                print(f"[Stage2] 📊 Optimized: batch={args.batch}, K={args.K}, D={args.D}", flush=True)
+                
+        elif "V100" in gpu_name or "H100" in gpu_name:
             print(f"[Stage2] ⚡ High-end GPU detected! Applying optimizations...", flush=True)
             torch.backends.cudnn.benchmark = True
             torch.backends.cudnn.deterministic = False
-            # メモリ効率化
             torch.cuda.empty_cache()
             
-            # パラメータを自動調整
+            # 高性能GPU用のパラメータ調整
             if not hasattr(args, 'auto_optimize') or args.auto_optimize:
                 print(f"[Stage2] 🔧 Auto-optimizing parameters for {gpu_name}...", flush=True)
                 args.batch = min(args.batch * 4, 1024)  # バッチサイズを4倍に
