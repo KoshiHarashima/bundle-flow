@@ -398,6 +398,52 @@ def revenue_loss(flow, V: List, menu: List[MenuElement], t_grid: torch.Tensor, l
 
 # テスト時
 @torch.no_grad()
+def visualize_menu(flow, menu: List[MenuElement], t_grid: torch.Tensor, 
+                   max_items: int = 10, device: torch.device = None) -> None:
+    """
+    メニューの内容を可視化（どの商品の組み合わせが提供されているか）
+    """
+    if device is None:
+        device = next(menu[0].parameters()).device
+    
+    print(f"\n{'='*60}")
+    print(f"📋 MENU VISUALIZATION (showing first {max_items} items)")
+    print(f"{'='*60}")
+    
+    for k, elem in enumerate(menu[:max_items]):
+        # バンドル生成（μから）
+        with torch.no_grad():
+            s_T = flow.flow_forward(elem.mus, t_grid)  # (D, m)
+            s = flow.round_to_bundle(s_T)  # (D, m) -> discrete bundles
+            
+        # 各バンドルの内容を表示
+        beta_val = elem.beta.item()
+        print(f"\n🍽️  Menu Item {k+1}: Price = {beta_val:.4f}")
+        
+        # ユニークなバンドルを抽出
+        unique_bundles = []
+        for d in range(s.shape[0]):
+            bundle = s[d].cpu().numpy()
+            bundle_tuple = tuple(bundle.astype(int))
+            if bundle_tuple not in unique_bundles:
+                unique_bundles.append(bundle_tuple)
+        
+        print(f"   📦 Generated bundles ({len(unique_bundles)} unique):")
+        for i, bundle in enumerate(unique_bundles[:5]):  # 最大5個表示
+            items = [j for j, val in enumerate(bundle) if val == 1]
+            if items:
+                items_str = ", ".join([f"Item_{j}" for j in items])
+                print(f"      {i+1}. [{items_str}]")
+            else:
+                print(f"      {i+1}. [Empty bundle]")
+        
+        if len(unique_bundles) > 5:
+            print(f"      ... and {len(unique_bundles)-5} more bundles")
+    
+    if len(menu) > max_items:
+        print(f"\n... and {len(menu)-max_items} more menu items")
+    
+    print(f"{'='*60}\n")
 
 # テスト時はSoftMaxではなく、argmaxを使っている。
 def infer_choice(flow, v, menu: List[MenuElement], t_grid: torch.Tensor) -> int:

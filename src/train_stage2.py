@@ -291,6 +291,11 @@ def train_stage2(args):
         if verbose:
             method_str = "Gumbel-Softmax+STE" if args.use_gumbel else "Softmax"
             print(f"\n[Iteration {it}] Starting forward pass ({method_str}, tau={tau:.4f})...", flush=True)
+        
+        # メニュー可視化（最初のiterationと定期的に）
+        if it == 1 or (is_log_iter and it % (args.log_every * 5) == 0):
+            from bf.menu import visualize_menu
+            visualize_menu(flow, menu, t_grid, max_items=8, device=device)
         loss = revenue_loss(flow, batch, menu, t_grid, lam=lam, verbose=verbose, debug=is_log_iter, 
                            v0_test=v0_for_debug, use_gumbel=args.use_gumbel, tau=tau)
 
@@ -359,6 +364,11 @@ def train_stage2(args):
     # （任意）テスト収益（ハードargmax；本文での推論手順） :contentReference[oaicite:10]{index=10}
     rev = eval_hard_revenue(flow, test[:args.eval_n], menu, t_grid)
     print(f"[TEST] hard-argmax revenue on {min(args.eval_n, len(test))} vals = {rev:.4f}")
+    
+    # 最終メニュー可視化
+    print(f"\n[FINAL] Final menu visualization:", flush=True)
+    from bf.menu import visualize_menu
+    visualize_menu(flow, menu, t_grid, max_items=10, device=device)
 
 # ---------- 評価（テスト時はハードargmax；Sec.3.3） ----------
 @torch.no_grad()
