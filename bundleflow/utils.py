@@ -44,9 +44,10 @@ def lambda_schedule(step: int,
     return (1 - x) * start + x * end
 
 # ---- 再現性 -----------------------------------------------------------------
-def seed_all(seed: int = 42, deterministic_cudnn: bool = False) -> None:
+def seed_all(seed: int = 42, deterministic_cudnn: bool = True) -> None:
     """
     乱数シードの固定（Python/NumPy/PyTorch）。
+    再現性を保証するための包括的なシード設定。
     """
     random.seed(seed)
     try:
@@ -55,6 +56,12 @@ def seed_all(seed: int = 42, deterministic_cudnn: bool = False) -> None:
     except Exception:
         pass
     torch.manual_seed(seed)
+    
+    # 決定論的設定（デフォルトON）
+    if deterministic_cudnn:
+        os.environ.setdefault("CUBLAS_WORKSPACE_CONFIG", ":4096:8")
+        torch.use_deterministic_algorithms(True)
+        torch.backends.cudnn.benchmark = False
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(seed)
         torch.cuda.manual_seed(seed)

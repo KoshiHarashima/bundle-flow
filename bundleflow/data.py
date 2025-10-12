@@ -112,12 +112,14 @@ def gen_uniform_iid_xor(m: int, a: int, low: float = 0.0, high: float = 1.0, see
         # 原子サイズの生成方法を選択（学習信号を出すための修正）
         if atom_size_mode == "small":
             # 小さい原子を作る: 期待サイズ 5–8
-            k = max(1, int(rng.geometric(p=0.2)))  # 期待 ~5
+            import numpy as np
+            k = max(1, int(np.random.geometric(p=0.2)))  # 期待 ~5
             items = rng.sample(range(1, m + 1), k=min(k, m))
             S = sorted(items)
         elif atom_size_mode == "medium":
             # 中程度の原子: 期待サイズ 8–15
-            k = max(1, int(rng.geometric(p=0.15)))  # 期待 ~6.7
+            import numpy as np
+            k = max(1, int(np.random.geometric(p=0.15)))  # 期待 ~6.7
             items = rng.sample(range(1, m + 1), k=min(k, m))
             S = sorted(items)
         elif atom_size_mode == "uniform_3_8":

@@ -1,8 +1,8 @@
 #!/bin/bash
 # Colab A100用の最適化されたStage2実行スクリプト
 
-echo "🚀 Colab A100 Optimized Stage2 Training Script"
-echo "=============================================="
+echo "🚀 BundleFlow Stage2 Colab A100 最適化版（Menu最適化）"
+echo "======================================================"
 
 # CUDA版PyTorchのインストール確認
 echo "🔍 Checking PyTorch installation..."
@@ -37,7 +37,8 @@ fi
 echo ""
 echo "🎯 Starting Stage2 training with Colab A100 optimizations..."
 
-# Colab A100用の最適化パラメータで実行
+# Colab A100用の最適化パラメータで実行（Menu最適化）
+echo "🎯 Stage2学習開始（Menu最適化）..."
 python3 -m src.train_stage2 \
     --flow_ckpt checkpoints/flow_stage1_final.pt \
     --m 50 \
@@ -53,4 +54,6 @@ python3 -m src.train_stage2 \
     --out_dir checkpoints_stage2_colab_a100 \
     --auto_optimize
 
-echo "✅ Training completed!"
+echo "✅ Stage2学習完了（Menu最適化）!"
+echo "📁 結果確認:"
+ls -la checkpoints_stage2_colab_a100/

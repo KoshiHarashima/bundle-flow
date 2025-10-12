@@ -9,7 +9,7 @@ import torch.nn as nn
 import torch.optim as optim
 from omegaconf import OmegaConf
 
-from bf.flow import FlowModel  # φ(t,s_t)=η(t)Q(s0)s_t, RectifiedFlow損失など実装済
+from bundleflow.flow import FlowModel  # φ(t,s_t)=η(t)Q(s0)s_t, RectifiedFlow損失など実装済
 
 try:
     from torch.utils.tensorboard import SummaryWriter
@@ -234,7 +234,11 @@ def train_stage1_from_config(cfg):
     import sys
     sys.argv = ['train_stage1.py']
     for key, value in cfg.items():
-        sys.argv.extend([f'--{key}', str(value)])
+        if isinstance(value, bool):
+            if value:
+                sys.argv.append(f'--{key}')
+        else:
+            sys.argv.extend([f'--{key}', str(value)])
     train_stage1_cli()
 
 def train_stage1_cli():
@@ -299,6 +303,7 @@ def train_stage1_cli():
     ap.add_argument("--probe", type=int, default=0)           # 小mでの被覆率チェック用
     ap.add_argument("--seed", type=int, default=42)
     ap.add_argument("--cpu", action="store_true")
+    ap.add_argument("--device", type=str, default="auto", help="Device to use: cuda, cpu, mps, or auto")
     
     args = ap.parse_args()
     train_stage1(args)

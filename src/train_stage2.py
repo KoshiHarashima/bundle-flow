@@ -10,10 +10,10 @@ import torch.nn as nn
 import torch.optim as optim
 from omegaconf import OmegaConf
 
-from bf.flow import FlowModel
-from bf.menu import MenuElement, make_null_element, revenue_loss, utilities_matrix
-from bf.data import load_cats_dir, train_test_split, gen_uniform_iid_xor
-from bf.valuation import XORValuation, _tensor_to_mask
+from bundleflow.flow import FlowModel
+from bundleflow.menu import MenuElement, make_null_element, revenue_loss, utilities_matrix
+from bundleflow.data import load_cats_dir, train_test_split, gen_uniform_iid_xor
+from bundleflow.valuation import XORValuation, _tensor_to_mask
 
 # ---------- utils（最小限） ----------
 def seed_all(seed: int):
@@ -576,7 +576,7 @@ if __name__ == "__main__":
 
     # データ（CATS or 合成）
     ap.add_argument("--cats_glob", type=str, default="")  # 例: "cats_out/*.txt"
-    ap.add_argument("--max_files", type=int, default=None)
+    ap.add_argument("--max_files", type=int, default=0)
     ap.add_argument("--n_val", type=int, default=5000)    # 合成の本数
     ap.add_argument("--a", type=int, default=20)          # 合成XORの原子数（Table 4 を模倣）
     ap.add_argument("--atom_size_mode", type=str, default="small", 
@@ -600,7 +600,8 @@ if __name__ == "__main__":
     ap.add_argument("--freeze_beta_iters", type=int, default=1000, help="Freeze β for first N iterations (warmup)")
     ap.add_argument("--warmup_iters", type=int, default=500, help="Warmup iterations with low λ")
     ap.add_argument("--match_rate_threshold", type=float, default=0.01, help="Minimum match rate threshold")
-    ap.add_argument("--reinit_on_failure", type=int, default=100, help="Reinitialize μ if match rate is 0% for N consecutive iterations")
+    ap.add_argument("--reinit_on_failure", type=int, default=100, help="Reinitialize μ if match rate is 0 percent for N consecutive iterations")
+    ap.add_argument("--device", type=str, default="auto", help="Device to use: cuda, cpu, mps, or auto")
 
     args = ap.parse_args()
     train_stage2(args)
@@ -625,7 +626,11 @@ def train_stage2_from_config(cfg):
     import sys
     sys.argv = ['train_stage2.py']
     for key, value in cfg.items():
-        sys.argv.extend([f'--{key}', str(value)])
+        if isinstance(value, bool):
+            if value:
+                sys.argv.append(f'--{key}')
+        else:
+            sys.argv.extend([f'--{key}', str(value)])
     train_stage2_cli()
 
 def train_stage2_cli():
@@ -650,7 +655,7 @@ def train_stage2_cli():
 
     # データ（CATS or 合成）
     ap.add_argument("--cats_glob", type=str, default="")  # 例: "cats_out/*.txt"
-    ap.add_argument("--max_files", type=int, default=None)
+    ap.add_argument("--max_files", type=int, default=0)
     ap.add_argument("--n_val", type=int, default=5000)    # 合成の本数
     ap.add_argument("--a", type=int, default=20)          # 合成XORの原子数（Table 4 を模倣）
     ap.add_argument("--atom_size_mode", type=str, default="small", 
@@ -675,7 +680,8 @@ def train_stage2_cli():
     ap.add_argument("--freeze_beta_iters", type=int, default=1000, help="Freeze β for first N iterations (warmup)")
     ap.add_argument("--warmup_iters", type=int, default=500, help="Warmup iterations with low λ")
     ap.add_argument("--match_rate_threshold", type=float, default=0.01, help="Minimum match rate threshold")
-    ap.add_argument("--reinit_on_failure", type=int, default=100, help="Reinitialize μ if match rate is 0% for N consecutive iterations")
+    ap.add_argument("--reinit_on_failure", type=int, default=100, help="Reinitialize μ if match rate is 0 percent for N consecutive iterations")
+    ap.add_argument("--device", type=str, default="auto", help="Device to use: cuda, cpu, mps, or auto")
 
     args = ap.parse_args()
     train_stage2(args)

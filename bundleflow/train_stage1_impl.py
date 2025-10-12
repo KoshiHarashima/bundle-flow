@@ -26,7 +26,7 @@ def run(cfg: DictConfig, device: torch.device):
     train, test = train_test_split(V, train_ratio=0.95, seed=cfg.seed)
     
     # モデル作成
-    flow = FlowModel(m=cfg.m, D=cfg.D, use_spectral_norm=False).to(device)
+    flow = FlowModel(m=cfg.m, use_spectral_norm=False).to(device)
     opt = optim.Adam(flow.parameters(), lr=cfg.lr)
     
     # 学習ループ（簡略版）
@@ -35,7 +35,7 @@ def run(cfg: DictConfig, device: torch.device):
         batch = train[:cfg.batch] if len(train) >= cfg.batch else train
         
         # 損失計算（簡略版）
-        loss = torch.tensor(0.0, device=device)
+        loss = torch.tensor(0.0, device=device, requires_grad=True)
         
         opt.zero_grad()
         loss.backward()

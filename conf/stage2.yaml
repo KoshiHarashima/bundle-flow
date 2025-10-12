@@ -29,7 +29,7 @@ grad_clip: 1.0
 ckpt_every: 5000
 log_every: 200
 eval_n: 1000
-max_files: null
+max_files: 0
 atom_size_mode: "small"
 cpu: false
 resume_ckpt: ""
