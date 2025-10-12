@@ -9,10 +9,17 @@ from typing import List
 class MenuElement(nn.Module):
     def __init__(self, m: int, D: int):
         super().__init__()
-        self.beta = nn.Parameter(torch.tensor(0.0))    # 価格 β^(k)
-        self.logits = nn.Parameter(torch.zeros(D))     # 混合重みのロジット
-        self.mus = nn.Parameter(torch.zeros(D, m))     # 初期分布の支持 μ_d^(k)
+        self.beta_raw = nn.Parameter(torch.tensor(-2.0))  # 初期値を負に（softplusで小さい正の値）
+        self.logits = nn.Parameter(torch.zeros(D))        # 混合重みのロジット
+        self.mus = nn.Parameter(torch.zeros(D, m))        # 初期分布の支持 μ_d^(k)
 
+    @property
+    def beta(self) -> torch.Tensor:
+        # softplusで β ≥ 0 を保証（論文の p ≥ 0 と整合）
+        # 上限1.5も設定して暴走を防止（valuationの最大値は通常1.0）
+        beta_unbounded = torch.nn.functional.softplus(self.beta_raw)
+        return torch.clamp(beta_unbounded, 0.0, 1.5)
+    
     @property
     def weights(self) -> torch.Tensor:
         return torch.softmax(self.logits, dim=0)       # simplex
@@ -21,7 +28,7 @@ class MenuElement(nn.Module):
 def make_null_element(m: int) -> MenuElement:
     elem = MenuElement(m, D=1)
     with torch.no_grad():
-        elem.beta.fill_(0.0)
+        elem.beta_raw.fill_(float('-inf'))  # softplus(-inf) ≈ 0.0
         elem.logits.fill_(0.0)
         elem.mus.zero_()
     for p in elem.parameters():

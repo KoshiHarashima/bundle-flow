@@ -171,16 +171,46 @@ def train_stage2(args):
     print(f"[Stage2] FlowModel ready (frozen)", flush=True)
 
     # メニュー初期化（各要素は価格 β と Dirac混合 α0；Eq.(21)） :contentReference[oaicite:7]{index=7}
+    # チェックポイントから再開する場合
+    start_iter = 1
+    loaded_ema = None
+    if args.resume_ckpt:
+        print(f"[Stage2] Resuming from checkpoint: {args.resume_ckpt}", flush=True)
+        resume_data = torch.load(args.resume_ckpt, map_location=device)
+        start_iter = resume_data.get("iteration", 0) + 1
+        loaded_ema = resume_data.get("ema", None)
+        print(f"[Stage2] Resuming from iteration {start_iter}, ema={loaded_ema}", flush=True)
+    
     menu = build_menu(args.m, args.K, args.D)
     # メニュー要素をdeviceに移動
     for elem in menu:
         elem.to(device)
-    params = []
+    
+    # チェックポイントからパラメータを復元
+    if args.resume_ckpt:
+        for i, elem in enumerate(menu):
+            if i < len(resume_data["menu"]):
+                beta_raw, logits, mus = resume_data["menu"][i]
+                elem.beta_raw.data.copy_(beta_raw.to(device))
+                elem.logits.data.copy_(logits.to(device))
+                elem.mus.data.copy_(mus.to(device))
+        print(f"[Stage2] Restored menu parameters from checkpoint", flush=True)
+    
+    # パラメータをμ/w とβに分離
+    mu_w_params = []
+    beta_params = []
     for elem in menu:
-        for p in elem.parameters():
+        for name, p in elem.named_parameters():
             if p.requires_grad:
-                params.append(p)
-    opt = optim.Adam(params, lr=args.lr)  # Setup: lr≈0.3 推奨。:contentReference[oaicite:8]{index=8}
+                if 'beta' in name:
+                    beta_params.append(p)
+                else:  # mus, logits
+                    mu_w_params.append(p)
+    
+    # 最初はμ/wのみ学習（βは凍結）
+    opt = optim.Adam(mu_w_params, lr=args.lr)  # Setup: lr≈0.3 推奨。:contentReference[oaicite:8]{index=8}
+    
+    print(f"[Stage2] Warmup phase: Optimizing {len(mu_w_params)} μ/w parameters, {len(beta_params)} β parameters frozen", flush=True)
 
     # 価値関数データ（V を train/test に分割） :contentReference[oaicite:9]{index=9}
     V_all = make_dataset(args)
@@ -220,9 +250,27 @@ def train_stage2(args):
         warmstart_mus(flow, menu, t_grid, n_grid=args.warmstart_grid, seed=args.seed)
 
     # ループ
-    ema = None
+    ema = loaded_ema if loaded_ema is not None else None
     t0 = time.time()
-    for it in range(1, args.iters + 1):
+    beta_unfrozen = False  # βの凍結状態を管理
+    
+    # チェックポイントから再開する場合、凍結状態も復元
+    if args.resume_ckpt and start_iter > args.freeze_beta_iters:
+        beta_unfrozen = True
+        all_params = mu_w_params + beta_params
+        opt = optim.Adam(all_params, lr=args.lr)
+        if "optimizer_state" in resume_data:
+            opt.load_state_dict(resume_data["optimizer_state"])
+        print(f"[Stage2] Resumed with β unfrozen", flush=True)
+    
+    for it in range(start_iter, args.iters + 1):
+        # βの凍結解除（warmup期間後）
+        if not beta_unfrozen and it > args.freeze_beta_iters:
+            print(f"\n[Iteration {it}] Unfreezing β parameters...", flush=True)
+            all_params = mu_w_params + beta_params
+            opt = optim.Adam(all_params, lr=args.lr)
+            beta_unfrozen = True
+            print(f"[Iteration {it}] Now optimizing {len(all_params)} parameters (μ/w/β)", flush=True)
         # バッチをサンプル
         B = min(args.batch, len(train))
         batch = random.sample(train, B)
@@ -243,7 +291,9 @@ def train_stage2(args):
         if verbose:
             print(f"  Backward pass complete. Clipping gradients and updating parameters...", flush=True)
         if args.grad_clip and args.grad_clip > 0:
-            nn.utils.clip_grad_norm_(params, args.grad_clip)
+            # 現在最適化中のパラメータに対してclip
+            current_params = opt.param_groups[0]['params']
+            nn.utils.clip_grad_norm_(current_params, args.grad_clip)
         opt.step()
         if verbose:
             print(f"  Iteration {it} complete!\n", flush=True)
@@ -275,18 +325,25 @@ def train_stage2(args):
         if args.ckpt_every > 0 and it % args.ckpt_every == 0:
             os.makedirs(args.out_dir, exist_ok=True)
             torch.save({
-                "menu": [ (e.beta.detach().cpu(), e.logits.detach().cpu(), e.mus.detach().cpu()) for e in menu ],
+                "menu": [ (e.beta_raw.detach().cpu(), e.logits.detach().cpu(), e.mus.detach().cpu()) for e in menu ],
+                "iteration": it,
                 "m": args.m, "K": args.K, "D": args.D,
-                "flow_ckpt": args.flow_ckpt
+                "flow_ckpt": args.flow_ckpt,
+                "optimizer_state": opt.state_dict(),
+                "ema": ema
             }, os.path.join(args.out_dir, f"menu_stage2_step{it}.pt"))
+            print(f"Saved checkpoint: menu_stage2_step{it}.pt")
 
     # 最終保存
     os.makedirs(args.out_dir, exist_ok=True)
     final_path = os.path.join(args.out_dir, "menu_stage2_final.pt")
     torch.save({
-        "menu": [ (e.beta.detach().cpu(), e.logits.detach().cpu(), e.mus.detach().cpu()) for e in menu ],
+        "menu": [ (e.beta_raw.detach().cpu(), e.logits.detach().cpu(), e.mus.detach().cpu()) for e in menu ],
+        "iteration": args.iters,
         "m": args.m, "K": args.K, "D": args.D,
-        "flow_ckpt": args.flow_ckpt
+        "flow_ckpt": args.flow_ckpt,
+        "optimizer_state": opt.state_dict(),
+        "ema": ema
     }, final_path)
     print(f"Saved final: {final_path}")
 
@@ -310,6 +367,7 @@ def eval_hard_revenue(flow: FlowModel, V: List[XORValuation], menu: List[MenuEle
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--flow_ckpt", type=str, default="checkpoints/flow_stage1_final.pt")
+    ap.add_argument("--resume_ckpt", type=str, default="", help="Resume from Stage2 checkpoint")
     ap.add_argument("--m", type=int, default=50)
     ap.add_argument("--K", type=int, default=512)      # 実験既定は m≤100で5k/それ以上で20k。
     ap.add_argument("--D", type=int, default=8)        # 有限支持サイズ（Dirac混合の個数）。
@@ -317,7 +375,7 @@ if __name__ == "__main__":
     ap.add_argument("--batch", type=int, default=128)
     ap.add_argument("--lr", type=float, default=3e-1)  # Setup: 0.3 を推奨。
     ap.add_argument("--lam_start", type=float, default=1e-3)
-    ap.add_argument("--lam_end", type=float, default=2e-1)
+    ap.add_argument("--lam_end", type=float, default=1e-1)  # 0.2 → 0.1（速めに上げる）
     ap.add_argument("--ode_steps", type=int, default=25)
     ap.add_argument("--grad_clip", type=float, default=1.0)
     ap.add_argument("--out_dir", type=str, default="checkpoints")
@@ -341,6 +399,7 @@ if __name__ == "__main__":
     ap.add_argument("--warmstart_grid", type=int, default=200, help="Number of random μ samples for warmstart")
     ap.add_argument("--reinit_every", type=int, default=2000, help="Reinitialize unused elements every N steps (0=disable)")
     ap.add_argument("--reinit_threshold", type=float, default=0.01, help="Reinit elements with z_mean < threshold")
+    ap.add_argument("--freeze_beta_iters", type=int, default=1000, help="Freeze β for first N iterations (warmup)")
 
     args = ap.parse_args()
     train_stage2(args)
