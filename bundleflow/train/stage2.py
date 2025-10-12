@@ -1,7 +1,9 @@
-# scripts/train_stage2.py
-# BundleFlow Stage 2: Menu Optimization
-# 参照: 期待効用の等価表現 Eq.(19), ODE解 Eq.(20), 厳密効用の有限支持版 Eq.(21),
-#       収益最大化損失 Eq.(22), SoftMax 割当 Eq.(23) 。:contentReference[oaicite:2]{index=2} :contentReference[oaicite:3]{index=3}
+# bundleflow/train/stage2.py
+"""
+BundleFlow Stage 2: Menu Optimization
+参照: 期待効用の等価表現 Eq.(19), ODE解 Eq.(20), 厳密効用の有限支持版 Eq.(21),
+      収益最大化損失 Eq.(22), SoftMax 割当 Eq.(23) 。
+"""
 
 import os, time, argparse, random
 from typing import List
@@ -23,7 +25,7 @@ def seed_all(seed: int):
         torch.cuda.manual_seed_all(seed)
 
 def lambda_schedule(step: int, total: int, start: float = 1e-3, end: float = 0.2) -> float:
-    # SoftMax温度 λ を線形で Eq.(23) に投入（Setup参照）。:contentReference[oaicite:4]{index=4}
+    # SoftMax温度 λ を線形で Eq.(23) に投入（Setup参照）。
     alpha = min(max(step / max(total, 1), 0.0), 1.0)
     return (1 - alpha) * start + alpha * end
 
@@ -133,7 +135,7 @@ def make_dataset(args) -> List[XORValuation]:
     if args.cats_glob:
         V = load_cats_dir(args.cats_glob, m=args.m, keep_dummy=None, max_files=args.max_files, shuffle=True)
     else:
-        # 合成XOR（Table 4 の原子数 a を模倣）を N 本生成。:contentReference[oaicite:5]{index=5}
+        # 合成XOR（Table 4 の原子数 a を模倣）を N 本生成。
         V = [gen_uniform_iid_xor(args.m, a=args.a, low=0.0, high=1.0, seed=1337 + i, 
                                  atom_size_mode=args.atom_size_mode) for i in range(args.n_val)]
     return V
@@ -231,7 +233,7 @@ def train_stage2(args):
     device = get_optimal_device(args)
     seed_all(args.seed)
 
-    # Stage 1 のフロー読込（φ 固定；Eq.(20)で使用） :contentReference[oaicite:6]{index=6}
+    # Stage 1 のフロー読込（φ 固定；Eq.(20)で使用）
     print(f"[Stage2] Loading checkpoint: {args.flow_ckpt}", flush=True)
     if os.path.exists(args.flow_ckpt):
         file_size = os.path.getsize(args.flow_ckpt) / (1024 * 1024)  # MB
@@ -258,7 +260,7 @@ def train_stage2(args):
     freeze_module(flow)  # φ を固定（Stage 2）
     print(f"[Stage2] BundleFlow ready (frozen)", flush=True)
 
-    # メニュー初期化（各要素は価格 β と Dirac混合 α0；Eq.(21)） :contentReference[oaicite:7]{index=7}
+    # メニュー初期化（各要素は価格 β と Dirac混合 α0；Eq.(21)）
     # チェックポイントから再開する場合
     start_iter = 1
     loaded_ema = None
@@ -296,11 +298,11 @@ def train_stage2(args):
                     mu_w_params.append(p)
     
     # 最初はμ/wのみ学習（βは凍結）
-    opt = optim.Adam(mu_w_params, lr=args.lr)  # Setup: lr≈0.3 推奨。:contentReference[oaicite:8]{index=8}
+    opt = optim.Adam(mu_w_params, lr=args.lr)  # Setup: lr≈0.3 推奨。
     
     print(f"[Stage2] Warmup phase: Optimizing {len(mu_w_params)} μ/w parameters, {len(beta_params)} β parameters frozen", flush=True)
 
-    # 価値関数データ（V を train/test に分割） :contentReference[oaicite:9]{index=9}
+    # 価値関数データ（V を train/test に分割）
     V_all = make_dataset(args)
     
     # デバッグ：最初のvaluationを詳しく確認
@@ -505,7 +507,7 @@ def train_stage2(args):
     }, final_path)
     print(f"Saved final: {final_path}")
 
-    # （任意）テスト収益（ハードargmax；本文での推論手順） :contentReference[oaicite:10]{index=10}
+    # （任意）テスト収益（ハードargmax；本文での推論手順）
     rev = eval_hard_revenue(flow, test[:args.eval_n], menu, t_grid)
     print(f"[TEST] hard-argmax revenue on {min(args.eval_n, len(test))} vals = {rev:.4f}")
     

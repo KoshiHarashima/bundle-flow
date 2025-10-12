@@ -40,11 +40,17 @@ make reproduce  # 5分で再現（小規模）
 ```
 bundle-flow/
 ├─ bundleflow/          # コアパッケージ
-├─ src/                 # エントリポイント
+│  ├─ models/           # モデル（BundleFlow, MenuElement, Mechanism）
+│  ├─ valuation/        # 評価関数（XORValuation）
+│  ├─ train/            # 学習スクリプト（Stage1, Stage2）
+│  ├─ data.py           # データローダー
+│  └─ utils.py          # ユーティリティ
+├─ src/                 # エントリポイント（後方互換性）
 ├─ conf/                # 設定ファイル
 ├─ tools/               # 環境チェック
 ├─ tests/               # テスト
 ├─ checkpoints/         # チェックポイント
+├─ MODEL.md             # モデル記号と目的のドキュメント
 ├─ COLAB_SETUP_GUIDE.md # 唯一の入口ドキュメント
 └─ pyproject.toml       # パッケージ設定
 ```

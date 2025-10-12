@@ -83,6 +83,12 @@ python -m pip install -e .
 - `bundleflow-stage1` - Stage1学習（Flow初期化）
 - `bundleflow-stage2` - Stage2学習（Menu最適化）
 
+**新しいAPI構造:**
+- `bundleflow.models.BundleFlow` - 速度場ネットワーク
+- `bundleflow.models.MenuElement` - メニュー要素
+- `bundleflow.models.Mechanism` - 全メニュー
+- `bundleflow.valuation.XORValuation` - 評価関数
+
 ---
 
 ## D) 最小の動作確認
@@ -92,14 +98,42 @@ python -m pip install -e .
 ```bash
 # 1. 基本動作確認
 python - <<'PY'
-from bundleflow.valuation import XORValuation
+from bundleflow.valuation.valuation import XORValuation
 import torch
 s = torch.zeros(6); s[0] = 1
 v = XORValuation.from_bundle_list(6, [([1], 1.0)])
 print("✅ OK:", isinstance(v.value(s), float))
 PY
 
-# 2. 設定ファイル確認
+# 2. 新しいAPI構造のテスト
+python - <<'PY'
+from bundleflow.models.flow import BundleFlow
+from bundleflow.models.menu import MenuElement, Mechanism
+from bundleflow.valuation.valuation import XORValuation
+import torch
+
+# 速度場のテスト
+flow = BundleFlow(m=5)
+x = torch.randn(3, 5)
+t = torch.rand(3)
+v = flow.velocity(x, t)
+print("✅ BundleFlow velocity shape:", v.shape)
+
+# メニュー要素のテスト
+elem = MenuElement(m=5, D=3)
+price = elem.price()
+print("✅ MenuElement price:", price.item())
+
+# 評価関数のテスト
+val = XORValuation.from_bundle_list(5, [([1, 2], 1.0)])
+bundle = torch.tensor([1.0, 1.0, 0.0, 0.0, 0.0])
+value = val.value(bundle)
+print("✅ XORValuation value:", value)
+
+print("🎉 新しいAPI構造が正常に動作しています！")
+PY
+
+# 3. 設定ファイル確認
 cat conf/stage1.yaml
 cat conf/stage2.yaml
 ```
@@ -210,8 +244,8 @@ torch.backends.cudnn.benchmark = False
 ### 乱数固定
 
 ```python
-from bundleflow.utils import seed_all
-seed_all(42, deterministic_cudnn=True)
+from bundleflow.train.stage1 import seed_all
+seed_all(42)
 ```
 
 ### 環境チェックツール
@@ -396,10 +430,64 @@ ls -la checkpoints/
 
 ## 📚 参考文献・技術ノート
 
+- [MODEL.md](MODEL.md) - モデル記号と目的のドキュメント
 - [Rectified Flow for Economists](RECTIFIED_FLOW_FOR_ECONOMISTS.md)
 - [Gumbel-Softmax Solution](GUMBEL_SOFTMAX_SOLUTION.md)
 - [Technical Issues Analysis](TECHNICAL_ISSUES_ANALYSIS.md)
 - [Implementation Report](IMPLEMENTATION_REPORT.md)
+
+---
+
+## 🚀 新しいAPI構造の使用例
+
+### 基本的な使用方法
+
+```python
+from bundleflow.models.flow import BundleFlow
+from bundleflow.models.menu import MenuElement, Mechanism
+from bundleflow.valuation.valuation import XORValuation
+import torch
+
+# 1. 速度場の初期化
+m = 10  # 商品数
+flow = BundleFlow(m=m)
+
+# 2. メニュー要素の作成
+K = 5   # メニュー要素数
+D = 8   # 初期分布の混合成分数
+menu = [MenuElement(m=m, D=D) for _ in range(K)]
+
+# 3. 評価関数の作成
+atoms = [([1, 2, 3], 5.0), ([4, 5], 3.0), ([6, 7, 8, 9], 8.0)]
+valuation = XORValuation.from_bundle_list(m, atoms)
+
+# 4. メカニズムの作成
+mechanism = Mechanism(flow, menu)
+
+# 5. 期待収入の計算
+revenue = mechanism.expected_revenue([valuation])
+print(f"期待収入: {revenue.item():.4f}")
+
+# 6. ハード割当での結果
+result = mechanism.argmax_menu([valuation])
+print(f"選択されたメニュー: {result['assignments'].item()}")
+print(f"効用: {result['utilities'].item():.4f}")
+print(f"価格: {result['prices'].item():.4f}")
+print(f"収入: {result['revenue'].item():.4f}")
+```
+
+### 後方互換性
+
+既存のコードも引き続き動作します：
+
+```python
+# 旧API（後方互換性あり）
+from bundleflow import FlowModel, MenuElement, XORValuation
+
+# 新API（推奨）
+from bundleflow.models import BundleFlow, MenuElement, Mechanism
+from bundleflow.valuation import XORValuation
+```
 
 ---
 

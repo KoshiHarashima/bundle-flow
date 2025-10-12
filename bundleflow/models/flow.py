@@ -1,7 +1,17 @@
-# bf/flow.py
+# bundleflow/models/flow.py
+"""
+BundleFlow: 速度場ネットワークの本体（v_θ）とODE積分器
+
+目的: 連続変数xをdx/dt=v_θ(x,t)で輸送し, x(1)の支持を{0,1}^mに寄せる.
+記号: m=商品数, B=バッチ, z~p0(φ_k).
+入力: x∈R^{B×m}, t∈R^B (0≤t≤1). 出力: v∈R^{B×m}.
+ロス: Rectified Flowの速度場一致損失（詳細は論文に同じ）.
+"""
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from typing import Tuple, Optional, Union
 
 # ---- Nets --------------------------------------------------------------
 
@@ -117,7 +127,16 @@ class EtaNet(nn.Module):
 
 # ---- Flow core ---------------------------------------------------------
 
-class FlowModel(nn.Module):
+class BundleFlow(nn.Module):
+    """
+    BundleFlow: 速度場ネットワークの本体（v_θ）とODE積分器
+    
+    目的: 連続変数xをdx/dt=v_θ(x,t)で輸送し, x(1)の支持を{0,1}^mに寄せる.
+    記号: m=商品数, B=バッチ, z~p0(φ_k).
+    入力: x∈R^{B×m}, t∈R^B (0≤t≤1). 出力: v∈R^{B×m}.
+    ロス: Rectified Flowの速度場一致損失（詳細は論文に同じ）.
+    """
+    
     def __init__(self, m: int, use_spectral_norm: bool = True, q_mode: str = 'full', 
                  c_eta: float = 2.0, eta_init_scale: float = 0.01,
                  eta_temperature: float = 1.0, use_eta_layernorm: bool = False,
@@ -129,8 +148,114 @@ class FlowModel(nn.Module):
                          temperature=eta_temperature, use_layernorm=use_eta_layernorm)
         self.eta_integral_clip = eta_integral_clip  # ∫ηの上限クリップ
 
+    def velocity(self, x: torch.Tensor, t: torch.Tensor) -> torch.Tensor:
+        """
+        速度場 v_θ(x,t) を計算
+        
+        Args:
+            x: 連続束変数 (B, m)
+            t: 時間 (B,) or scalar
+            
+        Returns:
+            v: 速度場 (B, m)
+        """
+        # φ(t,s_t) = η(t)·Q(s0)·s_t  （Eq.(9)）
+        Q = self.Q(x)                             # (B,m,m)
+        eta = self.eta(t).view(-1, 1, 1)           # (B,1,1)
+        return torch.bmm(eta * Q, x.unsqueeze(-1)).squeeze(-1)  # (B,m)
+
+    def pushforward(self, z: torch.Tensor, t1: float = 1.0, steps: int = 50,
+                    return_traj: bool = False) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
+        """
+        ODE積分で初期分布から終端分布へ輸送
+        
+        Args:
+            z: 初期値 (B, m)
+            t1: 終端時間 (デフォルト1.0)
+            steps: 積分ステップ数
+            return_traj: 軌道を返すかどうか
+            
+        Returns:
+            x_T: 終端値 (B, m) または (x_T, trajectory)
+        """
+        t_grid = torch.linspace(0.0, t1, steps=steps, device=z.device)
+        return self.flow_forward(z, t_grid, return_traj=return_traj)
+
+    def flow_forward(self, s0: torch.Tensor, t_grid: torch.Tensor, return_traj: bool = False) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
+        """
+        φ を Euler で前進解法  （Eq.(20) の数値化）
+        
+        Args:
+            s0: 初期値 (B, m)
+            t_grid: 時間グリッド (T,)
+            return_traj: 軌道を返すかどうか
+            
+        Returns:
+            s_T: 終端値 (B, m) または (s_T, trajectory)
+        """
+        s = s0.clone()
+        if return_traj:
+            trajectory = [s.clone()]
+        
+        for i in range(len(t_grid) - 1):
+            t = t_grid[i].expand(s0.shape[0])
+            dt = (t_grid[i + 1] - t_grid[i])
+            s = s + dt * self.velocity(s, t)
+            if return_traj:
+                trajectory.append(s.clone())
+        
+        if return_traj:
+            return s, torch.stack(trajectory, dim=1)  # (B, T, m)
+        return s
+
+    def loss_rectified(self, z: torch.Tensor, rng: Optional[torch.Generator] = None) -> torch.Tensor:
+        """
+        Rectified Flow損失を計算
+        
+        Args:
+            z: 初期値 (B, m)
+            rng: 乱数生成器
+            
+        Returns:
+            loss: Rectified Flow損失
+        """
+        # 簡略化された実装（詳細は元のrectified_flow_lossを参照）
+        B = z.shape[0]
+        device = z.device
+        
+        # ランダムな時間点をサンプル
+        if rng is not None:
+            t = torch.rand(B, device=device, generator=rng)
+        else:
+            t = torch.rand(B, device=device)
+        
+        # 線形補間: s_t = t * s_T + (1-t) * s_0
+        s_T = self.round_to_bundle(z) + 0.05 * torch.randn_like(z)
+        s_t = t.unsqueeze(-1) * s_T + (1.0 - t).unsqueeze(-1) * z
+        
+        # 目標: s_T - s_0
+        target = s_T - z
+        
+        # 予測: v_θ(s_t, t)
+        pred = self.velocity(s_t, t)
+        
+        # 損失: ||target - pred||^2
+        loss = (target - pred).pow(2).sum(-1).mean()
+        
+        return loss
+
     @torch.no_grad()
     def round_to_bundle(self, s_T: torch.Tensor, tau: float = 0.5) -> torch.Tensor:
+        """
+        連続値を離散束に丸める
+        
+        Args:
+            s_T: 連続値 (B, m)
+            tau: 閾値
+            
+        Returns:
+            b: 離散束 (B, m) ∈ {0,1}^m
+        """
         # s = I(φ(T,s0) ≥ 0.5)  （Eq.(19), (21)）
         return (s_T >= tau).to(s_T.dtype)
     
@@ -163,19 +288,32 @@ class FlowModel(nn.Module):
         
         return s
 
-    def phi(self, t: torch.Tensor, s_t: torch.Tensor, s0: torch.Tensor) -> torch.Tensor:
-        # φ(t,s_t) = η(t)·Q(s0)·s_t  （Eq.(9)）
-        Q = self.Q(s0)                             # (B,m,m)
-        eta = self.eta(t).view(-1, 1, 1)           # (B,1,1)
-        return torch.bmm(eta * Q, s_t.unsqueeze(-1)).squeeze(-1)  # (B,m)
-
     def divergence(self, t: torch.Tensor, s0: torch.Tensor) -> torch.Tensor:
+        """
+        発散 ∇·φ を計算
+        
+        Args:
+            t: 時間 (B,)
+            s0: 初期値 (B, m)
+            
+        Returns:
+            div: 発散 (B,)
+        """
         # ∇·φ = η(t)·Tr(Q(s0))  （Eq.(10)–(12)）
         Q = self.Q(s0)
         trQ = Q.diagonal(dim1=-2, dim2=-1).sum(-1)        # (B,)
         return self.eta(t) * trQ                           # (B,)
 
     def eta_integral(self, t_grid: torch.Tensor) -> torch.Tensor:
+        """
+        ∫_0^T η(t) dt を計算
+        
+        Args:
+            t_grid: 時間グリッド (T,)
+            
+        Returns:
+            integral: 積分値
+        """
         # ∫_0^T η(t) dt （台形則で近似；Eq.(12) のスカラー積分）
         eta_vals = self.eta(t_grid)                        # (T,)
         integral = torch.trapz(eta_vals, t_grid)           # ()
@@ -185,6 +323,16 @@ class FlowModel(nn.Module):
         return integral
 
     def log_density_weight(self, s0: torch.Tensor, t_grid: torch.Tensor) -> torch.Tensor:
+        """
+        密度重みの対数を計算
+        
+        Args:
+            s0: 初期値 (B, m)
+            t_grid: 時間グリッド (T,)
+            
+        Returns:
+            log_weight: 密度重みの対数 (B,)
+        """
         # log( exp( - Tr(Q(s0)) ∫ η ) ) = -Tr(Q(s0)) * ∫ η  （Eq.(12) のlog形、数値安定）
         Q = self.Q(s0)
         trQ = Q.diagonal(dim1=-2, dim2=-1).sum(-1)        # (B,)
@@ -192,22 +340,35 @@ class FlowModel(nn.Module):
         return -trQ * integ                                # (B,)
 
     def density_weight(self, s0: torch.Tensor, t_grid: torch.Tensor) -> torch.Tensor:
+        """
+        密度重みを計算
+        
+        Args:
+            s0: 初期値 (B, m)
+            t_grid: 時間グリッド (T,)
+            
+        Returns:
+            weight: 密度重み (B,)
+        """
         # exp( - Tr(Q(s0)) ∫ η )  （Eq.(12) の指数形）
         # 注：数値安定性のため、内部では log_density_weight を使用
         return torch.exp(self.log_density_weight(s0, t_grid))  # (B,)
 
-    def flow_forward(self, s0: torch.Tensor, t_grid: torch.Tensor) -> torch.Tensor:
-        # φ を Euler で前進解法  （Eq.(20) の数値化）
-        s = s0.clone()
-        for i in range(len(t_grid) - 1):
-            t = t_grid[i].expand(s0.shape[0])
-            dt = (t_grid[i + 1] - t_grid[i])
-            s = s + dt * self.phi(t, s, s0)
-        return s
-
     # ---- Stage 1: Rectified Flow 損失 -----------------------------------
     @staticmethod
     def sample_mog(B: int, mus: torch.Tensor, sigmas: torch.Tensor, weights: torch.Tensor) -> torch.Tensor:
+        """
+        混合Gaussianからサンプル
+        
+        Args:
+            B: バッチサイズ
+            mus: 平均 (D, m)
+            sigmas: 標準偏差 (D,)
+            weights: 重み (D,)
+            
+        Returns:
+            s0: サンプル (B, m)
+        """
         # s0 ~ Σ_d w_d N(μ_d, σ_d^2 I)  （Eq.(13)）
         device, D, m = mus.device, mus.shape[0], mus.shape[1]
         cat = torch.distributions.Categorical(logits=torch.log_softmax(weights, dim=0))
@@ -217,23 +378,50 @@ class FlowModel(nn.Module):
         return s0
 
     def compute_trace_q_penalty(self, s0: torch.Tensor) -> torch.Tensor:
-        # Tr(Q(s0))² の罰則（発散の制御）
+        """
+        Tr(Q(s0))² の罰則（発散の制御）
+        
+        Args:
+            s0: 初期値 (B, m)
+            
+        Returns:
+            penalty: 罰則値
+        """
         Q = self.Q(s0)
         trQ = Q.diagonal(dim1=-2, dim2=-1).sum(-1)        # (B,)
         return (trQ ** 2).mean()
     
     def compute_jacobian_penalty(self, s0: torch.Tensor, t: torch.Tensor) -> torch.Tensor:
-        """Jacobian罰則：λ_J * E[(η(t))^2 * ||Q(s0)||_F^2]
-        軌道短縮・ベクトル場の滑らかさを促進"""
+        """
+        Jacobian罰則：λ_J * E[(η(t))^2 * ||Q(s0)||_F^2]
+        軌道短縮・ベクトル場の滑らかさを促進
+        
+        Args:
+            s0: 初期値 (B, m)
+            t: 時間 (B,)
+            
+        Returns:
+            penalty: 罰則値
+        """
         Q = self.Q(s0)                                     # (B, m, m)
         eta = self.eta(t)                                  # (B,)
         Q_norm_sq = (Q ** 2).sum(dim=(1, 2))              # (B,) ||Q||_F^2
         return (eta ** 2 * Q_norm_sq).mean()
     
     def compute_kinetic_penalty(self, s0: torch.Tensor, s_t: torch.Tensor, t: torch.Tensor) -> torch.Tensor:
-        """Kinetic罰則：λ_K * E[||η(t) * Q(s0) * s_t||^2]
-        ベクトル場の大きさを制御し、密度重みの暴騰を抑制"""
-        phi = self.phi(t, s_t, s0)                         # (B, m)
+        """
+        Kinetic罰則：λ_K * E[||η(t) * Q(s0) * s_t||^2]
+        ベクトル場の大きさを制御し、密度重みの暴騰を抑制
+        
+        Args:
+            s0: 初期値 (B, m)
+            s_t: 中間値 (B, m)
+            t: 時間 (B,)
+            
+        Returns:
+            penalty: 罰則値
+        """
+        phi = self.velocity(s_t, t)                         # (B, m)
         return (phi ** 2).sum(dim=-1).mean()
     
     def compute_stability_regularization(
@@ -245,7 +433,20 @@ class FlowModel(nn.Module):
         lambda_k: float = 1e-3,
         lambda_tr: float = 1e-4
     ) -> dict:
-        """Stage-1安定化正則化の全項を計算"""
+        """
+        Stage-1安定化正則化の全項を計算
+        
+        Args:
+            s0: 初期値 (B, m)
+            s_t: 中間値 (B, m)
+            t: 時間 (B,)
+            lambda_j: Jacobian罰則重み
+            lambda_k: Kinetic罰則重み
+            lambda_tr: Trace罰則重み
+            
+        Returns:
+            reg_dict: 正則化項の辞書
+        """
         jac_penalty = self.compute_jacobian_penalty(s0, t)
         kin_penalty = self.compute_kinetic_penalty(s0, s_t, t)
         tr_penalty = self.compute_trace_q_penalty(s0)
@@ -267,7 +468,19 @@ class FlowModel(nn.Module):
         s_t: torch.Tensor,
         pred: torch.Tensor
     ) -> dict:
-        # 学習モニタリング用の統計量を計算
+        """
+        学習モニタリング用の統計量を計算
+        
+        Args:
+            s0: 初期値 (B, m)
+            sT: 終端値 (B, m)
+            t: 時間 (B,)
+            s_t: 中間値 (B, m)
+            pred: 予測値 (B, m)
+            
+        Returns:
+            stats: 統計量の辞書
+        """
         with torch.no_grad():
             Q = self.Q(s0)
             trQ = Q.diagonal(dim1=-2, dim2=-1).sum(-1)
@@ -304,6 +517,26 @@ class FlowModel(nn.Module):
         use_ste: bool = False,
         ste_tau: float = 0.1,
     ):
+        """
+        Rectified Flow損失を計算
+        
+        Args:
+            B: バッチサイズ
+            mus: 平均 (D, m)
+            sigmas: 標準偏差 (D,)
+            weights: 重み (D,)
+            sigma_z: ノイズ標準偏差
+            trace_penalty_weight: トレース罰則重み
+            lambda_j: Jacobian罰則重み
+            lambda_k: Kinetic罰則重み
+            lambda_tr: Trace罰則重み
+            return_stats: 統計量を返すかどうか
+            use_ste: STEを使用するかどうか
+            ste_tau: STE温度
+            
+        Returns:
+            loss: 損失値 または (loss, stats)
+        """
         # LFlow = E || (s_T - s_0) - φ(t,s_t) ||^2  （Eq.(15)）
         # s_t = t s_T + (1-t) s_0                     （Eq.(16)）
         # s_T ~ N( round(s_0), σ_z^2 I )              （Eq.(14)）
@@ -319,7 +552,7 @@ class FlowModel(nn.Module):
         t = torch.rand(B, device=s0.device)                # t ~ U[0,1]
         s_t = t.unsqueeze(-1) * sT + (1.0 - t).unsqueeze(-1) * s0
         target = sT - s0
-        pred = self.phi(t, s_t, s0)                        # （Eq.(17)）
+        pred = self.velocity(s_t, t)                        # （Eq.(17)）
         
         loss = (target - pred).pow(2).sum(-1).mean()
         
@@ -346,3 +579,7 @@ class FlowModel(nn.Module):
                 })
             return loss, stats
         return loss
+
+
+# 後方互換性のためのエイリアス
+FlowModel = BundleFlow

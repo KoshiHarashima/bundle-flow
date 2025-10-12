@@ -1,14 +1,33 @@
-# bf/menu.py
+# bundleflow/models/menu.py
+"""
+MenuElement: 一要素 k の (φ_k, p_k)
+Mechanism: 全メニュー（共通 v_θ と K個の(φ_k,p_k)）
+
+目的: 共通のv_θと各要素(φ_k,p_k)からメニューMを構成し期待収入E[R]を最大化.
+記号: K=メニュー要素数. 価値関数v(b)は外生.
+API: expected_revenue(valuation_batch), argmax_menu(valuation_batch)
+"""
+
 import torch
 import torch.nn as nn
+from typing import List, Dict, Any, Optional
 from dataclasses import dataclass
-from typing import List
 
 # v は XOR 評価器などで、v.value(s_bool: Tensor[m]) -> float を想定（推論時は厳密計算）.
 
 class MenuElement(nn.Module):
+    """
+    一要素 k の (φ_k, p_k)。p_k≥0はsoftplus等で保証。
+    
+    目的: 各メニュー要素kの初期分布パラメータφ_kと価格p_kを学習
+    記号: φ_k = {μ_d^(k), w_d^(k)}_d, p_k = softplus(β_k)
+    """
+    
     def __init__(self, m: int, D: int):
         super().__init__()
+        self.m = m
+        self.D = D
+        
         # βの初期化を多様化（-3.0から-1.0の範囲でランダム）
         beta_init = torch.randn(1) * 0.5 - 2.0  # mean=-2.0, std=0.5
         self.beta_raw = nn.Parameter(beta_init)
@@ -17,6 +36,12 @@ class MenuElement(nn.Module):
 
     @property
     def beta(self) -> torch.Tensor:
+        """
+        価格 p_k = softplus(β_k) ≥ 0
+        
+        Returns:
+            p_k: 価格 (scalar)
+        """
         # softplusで β ≥ 0 を保証（論文の p ≥ 0 と整合）
         # log_densityクリップ後は、IR制約が自然にβを制限するため、
         # 上限は念のための安全装置として緩く設定（10.0）
@@ -25,15 +50,55 @@ class MenuElement(nn.Module):
     
     @property
     def weights(self) -> torch.Tensor:
+        """
+        混合重み w_d^(k)
+        
+        Returns:
+            w: 重み (D,) simplex
+        """
         return torch.softmax(self.logits, dim=0)       # simplex
+    
+    def sample_init(self, n: int) -> torch.Tensor:
+        """
+        初期分布からサンプル z ~ p_0(φ_k)
+        
+        Args:
+            n: サンプル数
+            
+        Returns:
+            z: サンプル (n, m)
+        """
+        # 混合Dirac分布からサンプル
+        device = self.mus.device
+        cat = torch.distributions.Categorical(probs=self.weights)
+        idx = cat.sample((n,))  # (n,)
+        return self.mus[idx]  # (n, m)
+    
+    def price(self) -> torch.Tensor:
+        """
+        価格 p_k
+        
+        Returns:
+            p_k: 価格 (scalar)
+        """
+        return self.beta
     
     def to(self, device):
         """デバイス移動メソッド"""
         super().to(device)
         return self
 
-# IRのためにNull Menuを用意している。
+
 def make_null_element(m: int) -> MenuElement:
+    """
+    IRのためにNull Menuを用意
+    
+    Args:
+        m: 商品数
+        
+    Returns:
+        null_elem: ヌル要素（価格0、効用0）
+    """
     elem = MenuElement(m, D=1)
     with torch.no_grad():
         elem.beta_raw.fill_(float('-inf'))  # softplus(-inf) ≈ 0.0
@@ -43,11 +108,106 @@ def make_null_element(m: int) -> MenuElement:
         p.requires_grad_(False)
     return elem
 
+
+class Mechanism(nn.Module):
+    """
+    全メニュー（共通 v_θ と K個の(φ_k,p_k)）
+    
+    目的: 共通のv_θと各要素(φ_k,p_k)からメニューMを構成し期待収入E[R]を最大化.
+    記号: K=メニュー要素数. 価値関数v(b)は外生.
+    API: expected_revenue(valuation_batch), argmax_menu(valuation_batch)
+    """
+    
+    def __init__(self, flow, menu: List[MenuElement]):
+        super().__init__()
+        self.flow = flow
+        self.menu = menu
+        self.K = len(menu)
+    
+    def expected_revenue(self, valuation_batch) -> torch.Tensor:
+        """
+        期待収入を計算
+        
+        Args:
+            valuation_batch: 評価関数のリスト
+            
+        Returns:
+            revenue: 期待収入
+        """
+        # 効用行列を計算
+        t_grid = torch.linspace(0.0, 1.0, steps=25, device=next(self.menu[0].parameters()).device)
+        U = utilities_matrix(self.flow, valuation_batch, self.menu, t_grid)  # (B, K)
+        
+        # 価格を取得
+        beta = torch.stack([elem.beta for elem in self.menu]).squeeze()  # (K,)
+        
+        # ソフト割当
+        lam = 0.1  # 温度パラメータ
+        Z = torch.softmax(lam * U, dim=1)  # (B, K)
+        
+        # 期待収入
+        revenue = (Z * beta.unsqueeze(0)).sum(dim=1).mean()
+        
+        return revenue
+    
+    def argmax_menu(self, valuation_batch) -> Dict[str, Any]:
+        """
+        ハード割当でのメニュー選択結果
+        
+        Args:
+            valuation_batch: 評価関数のリスト
+            
+        Returns:
+            result: 割当/価格/期待厚生などの辞書
+        """
+        # 効用行列を計算
+        t_grid = torch.linspace(0.0, 1.0, steps=25, device=next(self.menu[0].parameters()).device)
+        U = utilities_matrix(self.flow, valuation_batch, self.menu, t_grid)  # (B, K)
+        
+        # ハード割当
+        selected_idx = torch.argmax(U, dim=1)  # (B,)
+        selected_utility = torch.gather(U, 1, selected_idx.unsqueeze(1)).squeeze(1)  # (B,)
+        
+        # 価格を取得
+        beta = torch.stack([elem.beta for elem in self.menu]).squeeze()  # (K,)
+        selected_prices = beta[selected_idx]  # (B,)
+        
+        # IR制約チェック
+        ir_mask = (selected_utility >= 0.0).float()  # (B,)
+        
+        # 収入計算
+        revenue = (selected_prices * ir_mask).mean()
+        
+        # 厚生計算（簡略化）
+        welfare = selected_utility.mean()
+        
+        return {
+            'assignments': selected_idx,
+            'utilities': selected_utility,
+            'prices': selected_prices,
+            'revenue': revenue,
+            'welfare': welfare,
+            'ir_satisfied': ir_mask.mean()
+        }
+
+
 # ---- Stage 2: 効用・損失 ------------------------------------------------
 
 # メニューlに関して、効用を計算している。
 # u^(k)(v) = Σ_d v(s(μ_d^(k))) · w_d^(k) · exp{-Tr[Q(μ_d^(k))]∫η} − β^(k)  （Eq.(21)）
 def utility_element(flow, v, elem: MenuElement, t_grid: torch.Tensor) -> torch.Tensor:
+    """
+    単一メニュー要素の効用を計算
+    
+    Args:
+        flow: BundleFlow
+        v: 評価関数
+        elem: MenuElement
+        t_grid: 時間グリッド
+        
+    Returns:
+        utility: 効用
+    """
     sT = flow.flow_forward(elem.mus, t_grid)     # (D,m)  （Eq.(20)）
     s = flow.round_to_bundle(sT)                 # (D,m)  （Eq.(21)の s(μ)）
     vals = torch.tensor([float(v.value(s[d])) for d in range(s.shape[0])],
@@ -67,12 +227,25 @@ def utility_element(flow, v, elem: MenuElement, t_grid: torch.Tensor) -> torch.T
     
     return (u.to(s.dtype) - beta)
 
+
 # バッチ処理版：全menu elementsを一度に処理
 # U[b,k] = u^(k)(v_b)  （Eq.(21) を全組で）
 def utilities_matrix_batched(flow, V: List, menu: List[MenuElement], t_grid: torch.Tensor, verbose: bool = False, debug: bool = False, v0_test=None) -> torch.Tensor:
     """
     高速バッチ処理版：全menu elementsのmusを統合して一度に処理
     速度: O(B * K * D) → O(B * 1)のflow_forward呼び出し
+    
+    Args:
+        flow: BundleFlow
+        V: 評価関数のリスト
+        menu: MenuElementのリスト
+        t_grid: 時間グリッド
+        verbose: 詳細ログ
+        debug: デバッグログ
+        v0_test: テスト用評価関数
+        
+    Returns:
+        U: 効用行列 (B, K)
     """
     K = len(menu)
     B = len(V)
@@ -203,16 +376,44 @@ def utilities_matrix_batched(flow, V: List, menu: List[MenuElement], t_grid: tor
     
     return U  # (B, K)
 
+
 # バリュー集合Vと、全てのメニューlに関して、効用を行列表示している。
 # U[b,k] = u^(k)(v_b)  （Eq.(21) を全組で）
 def utilities_matrix(flow, V: List, menu: List[MenuElement], t_grid: torch.Tensor, verbose: bool = False, debug: bool = False, v0_test=None) -> torch.Tensor:
+    """
+    効用行列を計算
+    
+    Args:
+        flow: BundleFlow
+        V: 評価関数のリスト
+        menu: MenuElementのリスト
+        t_grid: 時間グリッド
+        verbose: 詳細ログ
+        debug: デバッグログ
+        v0_test: テスト用評価関数
+        
+    Returns:
+        U: 効用行列 (B, K)
+    """
     # バッチ処理版を使用
     return utilities_matrix_batched(flow, V, menu, t_grid, verbose=verbose, debug=debug, v0_test=v0_test)
+
 
 # 学習時の連続割り当てを返す。
 # z^(k)(v) = SoftMax_k( λ · u^(k)(v) )  （Eq.(23)）
 def soft_assignment(U: torch.Tensor, lam: float) -> torch.Tensor:
+    """
+    ソフト割当を計算
+    
+    Args:
+        U: 効用行列 (B, K)
+        lam: 温度パラメータ
+        
+    Returns:
+        Z: ソフト割当 (B, K)
+    """
     return torch.softmax(lam * U, dim=1)
+
 
 # 期待損益の負の値を最小化している。
 def revenue_loss(flow, V: List, menu: List[MenuElement], t_grid: torch.Tensor, lam: float = 0.1, 
@@ -294,12 +495,20 @@ def revenue_loss(flow, V: List, menu: List[MenuElement], t_grid: torch.Tensor, l
         print(f"  Revenue: {rev.item():.6f} ({'Gumbel+STE' if use_gumbel else 'Softmax'})", flush=True)
     return -rev
 
+
 # テスト時
 @torch.no_grad()
 def visualize_menu(flow, menu: List[MenuElement], t_grid: torch.Tensor, 
                    max_items: int = 10, device: torch.device = None) -> None:
     """
     メニューの内容を可視化（どの商品の組み合わせが提供されているか）
+    
+    Args:
+        flow: BundleFlow
+        menu: MenuElementのリスト
+        t_grid: 時間グリッド
+        max_items: 表示する最大アイテム数
+        device: デバイス
     """
     if device is None:
         device = next(menu[0].parameters()).device
@@ -343,8 +552,21 @@ def visualize_menu(flow, menu: List[MenuElement], t_grid: torch.Tensor,
     
     print(f"{'='*60}\n")
 
+
 # テスト時はSoftMaxではなく、argmaxを使っている。
 def infer_choice(flow, v, menu: List[MenuElement], t_grid: torch.Tensor) -> int:
+    """
+    推論時の選択を計算
+    
+    Args:
+        flow: BundleFlow
+        v: 評価関数
+        menu: MenuElementのリスト
+        t_grid: 時間グリッド
+        
+    Returns:
+        choice: 選択されたメニュー要素のインデックス
+    """
     # 推論時は argmax（本文 Sec.3.3 / Eq.(23) のハード版）
     U = torch.stack([utility_element(flow, v, elem, t_grid) for elem in menu])  # (K,)
     return int(torch.argmax(U).item())
