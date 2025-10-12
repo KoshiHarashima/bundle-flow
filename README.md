@@ -4,7 +4,11 @@
 
 ## 🚀 Getting Started
 
-**→ [COLAB_SETUP_GUIDE.md](COLAB_SETUP_GUIDE.md)**
+### 🎯 Quick Demo (Colab)
+**→ [BundleFlow_Colab_Demo.ipynb](BundleFlow_Colab_Demo.ipynb)** - 新しいAPI構造のデモンストレーション
+
+### 📖 Setup Guide
+**→ [COLAB_SETUP_GUIDE.md](COLAB_SETUP_GUIDE.md)** - 詳細なセットアップ手順
 
 ## 📖 Research Background
 
@@ -12,12 +16,15 @@ BundleFlow is a novel approach to combinatorial auction design using Rectified F
 
 - **Stage 1**: Flow initialization for bundle generation
 - **Stage 2**: Menu optimization for revenue maximization
+- **New API Structure**: Clear separation of concerns with `BundleFlow`, `MenuElement`, `Mechanism`
+- **Type Safety**: Complete type annotations and economic symbol documentation
 - **Numerical stability**: Log-sum-exp, softplus constraints, warmup scheduling
 - **GPU acceleration**: CUDA/MPS support with automatic optimization
 - **Reproducibility**: Deterministic algorithms and comprehensive environment checks
 
 ## 📚 References
 
+- [MODEL.md](MODEL.md) - モデル記号と目的のドキュメント
 - [Rectified Flow for Economists](RECTIFIED_FLOW_FOR_ECONOMISTS.md)
 - [Gumbel-Softmax Solution](GUMBEL_SOFTMAX_SOLUTION.md)
 - [Technical Issues Analysis](TECHNICAL_ISSUES_ANALYSIS.md)
@@ -51,7 +58,8 @@ bundle-flow/
 ├─ tests/               # テスト
 ├─ checkpoints/         # チェックポイント
 ├─ MODEL.md             # モデル記号と目的のドキュメント
-├─ COLAB_SETUP_GUIDE.md # 唯一の入口ドキュメント
+├─ BundleFlow_Colab_Demo.ipynb # Colabデモノートブック
+├─ COLAB_SETUP_GUIDE.md # 詳細セットアップガイド
 └─ pyproject.toml       # パッケージ設定
 ```
 
