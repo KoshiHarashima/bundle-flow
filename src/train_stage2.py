@@ -137,21 +137,70 @@ def make_dataset(args) -> List[XORValuation]:
                                  atom_size_mode=args.atom_size_mode) for i in range(args.n_val)]
     return V
 
-# ---------- 学習本体（Eq.(21)→(22) 最適化） ----------
-def train_stage2(args):
-    # GPU最適化: Colab A100用設定
+# ---------- デバイス最適化機能 ----------
+def get_optimal_device(args):
+    """
+    デバイスを自動選択し、最適化設定を適用
+    """
     if torch.cuda.is_available() and not args.cpu:
         device = torch.device("cuda")
-        # A100の最適化設定
-        torch.backends.cudnn.benchmark = True  # 最適化された畳み込みアルゴリズム
-        torch.backends.cudnn.deterministic = False  # 高速化のため非決定論的
-        # メモリ効率化
-        torch.cuda.empty_cache()
-        print(f"[Stage2] Using GPU: {torch.cuda.get_device_name(0)}", flush=True)
-        print(f"[Stage2] GPU Memory: {torch.cuda.get_device_properties(0).total_memory / 1e9:.1f} GB", flush=True)
+        
+        # GPU情報を表示
+        gpu_name = torch.cuda.get_device_name(0)
+        gpu_memory = torch.cuda.get_device_properties(0).total_memory / 1e9
+        
+        print(f"[Stage2] 🚀 Using GPU: {gpu_name}", flush=True)
+        print(f"[Stage2] 💾 GPU Memory: {gpu_memory:.1f} GB", flush=True)
+        
+        # GPU最適化設定
+        if "A100" in gpu_name or "V100" in gpu_name or "H100" in gpu_name:
+            print(f"[Stage2] ⚡ High-end GPU detected! Applying optimizations...", flush=True)
+            torch.backends.cudnn.benchmark = True
+            torch.backends.cudnn.deterministic = False
+            # メモリ効率化
+            torch.cuda.empty_cache()
+            
+            # パラメータを自動調整
+            if not hasattr(args, 'auto_optimize') or args.auto_optimize:
+                print(f"[Stage2] 🔧 Auto-optimizing parameters for {gpu_name}...", flush=True)
+                args.batch = min(args.batch * 4, 1024)  # バッチサイズを4倍に
+                args.K = min(args.K * 2, 2048)  # メニュー要素数を2倍に
+                args.D = min(args.D * 2, 32)  # 特徴次元を2倍に
+                print(f"[Stage2] 📊 Optimized: batch={args.batch}, K={args.K}, D={args.D}", flush=True)
+        
+        elif "T4" in gpu_name or "K80" in gpu_name:
+            print(f"[Stage2] ⚠️  Mid-range GPU detected. Using conservative settings...", flush=True)
+            torch.backends.cudnn.benchmark = True
+            torch.cuda.empty_cache()
+            
+        else:
+            print(f"[Stage2] 🔧 Standard GPU detected. Using default optimizations...", flush=True)
+            torch.backends.cudnn.benchmark = True
+            torch.cuda.empty_cache()
+            
     else:
         device = torch.device("cpu")
-        print(f"[Stage2] Using device: {device}", flush=True)
+        print(f"[Stage2] 💻 Using CPU (GPU not available or --cpu flag set)", flush=True)
+        print(f"[Stage2] ⚠️  CPU mode is very slow. Consider using GPU for better performance.", flush=True)
+        
+        # CPU用の最適化
+        if not hasattr(args, 'auto_optimize') or args.auto_optimize:
+            print(f"[Stage2] 🔧 Auto-optimizing parameters for CPU...", flush=True)
+            args.batch = min(args.batch, 64)  # バッチサイズを制限
+            args.K = min(args.K, 256)  # メニュー要素数を制限
+            args.D = min(args.D, 8)  # 特徴次元を制限
+            print(f"[Stage2] 📊 Optimized: batch={args.batch}, K={args.K}, D={args.D}", flush=True)
+    
+    return device
+
+# ---------- 学習本体（Eq.(21)→(22) 最適化） ----------
+def train_stage2(args):
+    # 自動最適化の制御
+    if args.no_auto_optimize:
+        args.auto_optimize = False
+    
+    # デバイス切り替え機能
+    device = get_optimal_device(args)
     seed_all(args.seed)
 
     # Stage 1 のフロー読込（φ 固定；Eq.(20)で使用） :contentReference[oaicite:6]{index=6}
@@ -427,6 +476,8 @@ if __name__ == "__main__":
                     help="Atom size distribution: small(~5 items), medium(~10), large(~25), uniform_3_8(3-8)")
     ap.add_argument("--eval_n", type=int, default=1000)
     ap.add_argument("--cpu", action="store_true")
+    ap.add_argument("--auto_optimize", action="store_true", default=True, help="Auto-optimize parameters for detected hardware")
+    ap.add_argument("--no_auto_optimize", action="store_true", help="Disable auto-optimization")
     
     # Gumbel-Softmax + STE（Stage 2の破綻を修正）
     ap.add_argument("--use_gumbel", action="store_true", help="Use Gumbel-Softmax + STE (fixes training-test gap)")
