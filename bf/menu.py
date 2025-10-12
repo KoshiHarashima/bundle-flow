@@ -16,9 +16,10 @@ class MenuElement(nn.Module):
     @property
     def beta(self) -> torch.Tensor:
         # softplusで β ≥ 0 を保証（論文の p ≥ 0 と整合）
-        # 上限1.5も設定して暴走を防止（valuationの最大値は通常1.0）
+        # log_densityクリップ後は、IR制約が自然にβを制限するため、
+        # 上限は念のための安全装置として緩く設定（10.0）
         beta_unbounded = torch.nn.functional.softplus(self.beta_raw)
-        return torch.clamp(beta_unbounded, 0.0, 1.5)
+        return torch.clamp(beta_unbounded, 0.0, 10.0)  # 緩い上限
     
     @property
     def weights(self) -> torch.Tensor:
@@ -107,12 +108,15 @@ def utilities_matrix_batched(flow, V: List, menu: List[MenuElement], t_grid: tor
     
     # log_density_weightもバッチ処理
     log_density_flat = flow.log_density_weight(mus_flat, t_grid)  # (K_main*D,)
+    # 安定化：log_densityをクリップ（exp爆発を防止）
+    log_density_flat = torch.clamp(log_density_flat, -10.0, 0.0)  # 密度重み ≤ 1.0
     log_density = log_density_flat.view(K_main, D)  # (K_main, D)
     
     # null要素も一度に処理
     null_sT = flow.flow_forward(null_elem.mus, t_grid)  # (1, m)
     null_s = flow.round_to_bundle(null_sT)  # (1, m)
     null_log_density = flow.log_density_weight(null_elem.mus, t_grid)  # (1,)
+    null_log_density = torch.clamp(null_log_density, -10.0, 0.0)  # 安定化
     null_weight = null_elem.weights  # (1,)
     null_beta = null_elem.beta  # scalar
     
