@@ -277,14 +277,22 @@ def train_stage2(args):
 
         # λ（Eq.(23)）をスケジュール
         lam = lambda_schedule(it, args.iters, start=args.lam_start, end=args.lam_end)
+        
+        # Gumbel-Softmax温度をアニーリング（use_gumbelの時のみ使用）
+        if args.use_gumbel:
+            tau = args.tau_start * (args.tau_end / args.tau_start) ** ((it - 1) / args.iters)
+        else:
+            tau = 0.1  # ダミー（使用されない）
 
         # 収益損失（Eq.(22)）を最小化。内部で効用 u^(k)(v) を Eq.(21) で厳密計算。
         # ログ出力時にデバッグ情報を表示
         is_log_iter = (it % args.log_every == 0)
         verbose = (it == 1)
         if verbose:
-            print(f"\n[Iteration {it}] Starting forward pass...", flush=True)
-        loss = revenue_loss(flow, batch, menu, t_grid, lam=lam, verbose=verbose, debug=is_log_iter, v0_test=v0_for_debug)
+            method_str = "Gumbel-Softmax+STE" if args.use_gumbel else "Softmax"
+            print(f"\n[Iteration {it}] Starting forward pass ({method_str}, tau={tau:.4f})...", flush=True)
+        loss = revenue_loss(flow, batch, menu, t_grid, lam=lam, verbose=verbose, debug=is_log_iter, 
+                           v0_test=v0_for_debug, use_gumbel=args.use_gumbel, tau=tau)
 
         opt.zero_grad()
         loss.backward()
@@ -310,7 +318,8 @@ def train_stage2(args):
             iter_per_sec = it / dt if dt > 0 else 0
             eta_sec = (args.iters - it) / iter_per_sec if iter_per_sec > 0 else 0
             eta_min = eta_sec / 60
-            print(f"[{it}/{args.iters}] LRev={loss.item():.6f} ema={ema:.6f} lam={lam:.4f} time={dt:.1f}s speed={iter_per_sec:.2f}it/s ETA={eta_min:.1f}min", flush=True)
+            temp_str = f"tau={tau:.4f}" if args.use_gumbel else f"lam={lam:.4f}"
+            print(f"[{it}/{args.iters}] LRev={loss.item():.6f} ema={ema:.6f} {temp_str} time={dt:.1f}s speed={iter_per_sec:.2f}it/s ETA={eta_min:.1f}min", flush=True)
         
         # 弱い再初期化（未使用要素の探索維持）
         if args.reinit_every > 0 and it % args.reinit_every == 0:
@@ -393,6 +402,11 @@ if __name__ == "__main__":
                     help="Atom size distribution: small(~5 items), medium(~10), large(~25), uniform_3_8(3-8)")
     ap.add_argument("--eval_n", type=int, default=1000)
     ap.add_argument("--cpu", action="store_true")
+    
+    # Gumbel-Softmax + STE（Stage 2の破綻を修正）
+    ap.add_argument("--use_gumbel", action="store_true", help="Use Gumbel-Softmax + STE (fixes training-test gap)")
+    ap.add_argument("--tau_start", type=float, default=1.0, help="Initial Gumbel-Softmax temperature")
+    ap.add_argument("--tau_end", type=float, default=0.01, help="Final Gumbel-Softmax temperature")
     
     # μのウォームスタート＋再初期化
     ap.add_argument("--warmstart", action="store_true", help="Enable μ warmstart from representative bundles")

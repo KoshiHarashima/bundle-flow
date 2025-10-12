@@ -138,7 +138,7 @@ def utilities_matrix_batched(flow, V: List, menu: List[MenuElement], t_grid: tor
             # デバッグ：複数のvaluationをチェック
             if debug and i < 3:  # 最初の3個のvaluationをチェック
                 non_zero_count = (vals_flat > 0).sum().item()
-                print(f"  [DEBUG] Valuation {i}: batch_value min={vals_flat.min().item():.4f}, max={vals_flat.max().item():.4f}, non-zero={non_zero_count}/512", flush=True)
+                print(f"  [DEBUG] Valuation {i}: batch_value min={vals_flat.min().item():.4f}, max={vals_flat.max().item():.4f}, non-zero={non_zero_count}/{len(vals_flat)}", flush=True)
                 print(f"  [DEBUG] Valuation {i}: num_atoms={len(v.atoms)}, max_price={max(p for _, p in v.atoms):.4f}", flush=True)
             
             vals_flat = vals_flat.to(device)  # GPUに戻す
@@ -327,27 +327,73 @@ def soft_assignment(U: torch.Tensor, lam: float) -> torch.Tensor:
     return torch.softmax(lam * U, dim=1)
 
 # 期待損益の負の値を最小化している。
-def revenue_loss(flow, V: List, menu: List[MenuElement], t_grid: torch.Tensor, lam: float, verbose: bool = False, debug: bool = False, v0_test=None) -> torch.Tensor:
+def revenue_loss(flow, V: List, menu: List[MenuElement], t_grid: torch.Tensor, lam: float = 0.1, 
+                 verbose: bool = False, debug: bool = False, v0_test=None,
+                 use_gumbel: bool = False, tau: float = 0.1) -> torch.Tensor:
+    """
+    Stage 2の収益損失関数
+    
+    Args:
+        flow: FlowModel
+        V: Valuations
+        menu: List[MenuElement]
+        t_grid: 時間グリッド
+        lam: Softmax温度（use_gumbel=Falseの時のみ使用）
+        verbose: 詳細ログ
+        debug: デバッグログ
+        v0_test: テスト用valuation
+        use_gumbel: TrueならGumbel-Softmax + STE、FalseならSoftmax relaxation
+        tau: Gumbel-Softmax温度（use_gumbel=Trueの時のみ使用）
+        
+    Returns:
+        -revenue (損失)
+    """
     # LRev = -(1/|V|) Σ_v Σ_k z_k(v) β_k  （Eq.(22)）
     if verbose:
         print(f"  Computing utilities matrix ({len(V)} valuations × {len(menu)} menu elements)...", flush=True)
-    U = utilities_matrix(flow, V, menu, t_grid, verbose=verbose, debug=debug, v0_test=v0_test)          # (B,K)
-    if verbose:
-        print(f"  Computing soft assignment...", flush=True)
-    Z = soft_assignment(U, lam)                          # (B,K)
+    U = utilities_matrix(flow, V, menu, t_grid, verbose=verbose, debug=debug, v0_test=v0_test)  # (B,K)
     beta = torch.stack([elem.beta for elem in menu])     # (K,)
-    rev = (Z * beta.unsqueeze(0)).sum(dim=1).mean()
     
-    if debug:
-        print(f"  [DEBUG-REV] Z shape: {Z.shape}, beta shape: {beta.shape}", flush=True)
-        print(f"  [DEBUG-REV] Z[0] (first valuation selection probs): min={Z[0].min().item():.6f}, max={Z[0].max().item():.6f}", flush=True)
-        print(f"  [DEBUG-REV] Z[:, -1] (null selection): min={Z[:, -1].min().item():.6f}, max={Z[:, -1].max().item():.6f}, mean={Z[:, -1].mean().item():.6f}", flush=True)
-        print(f"  [DEBUG-REV] beta range: [{beta.min().item():.4f}, {beta.max().item():.4f}]", flush=True)
-        print(f"  [DEBUG-REV] beta[-1] (null price): {beta[-1].item():.6f}", flush=True)
-        print(f"  [DEBUG-REV] (Z * beta) per valuation: {(Z * beta.unsqueeze(0)).sum(dim=1)[:5].tolist()}", flush=True)
+    if use_gumbel:
+        # Gumbel-Softmax + STE: Forward時にhard argmax、Backward時にsoft勾配
+        if verbose:
+            print(f"  Computing Gumbel-Softmax assignment (tau={tau}, hard=True)...", flush=True)
+        
+        from bf.utils import gumbel_softmax
+        Z = gumbel_softmax(U, tau=tau, hard=True, dim=1)  # (B, K) one-hot
+        
+        # IR制約の明示的適用: 選択されたメニューの効用が負なら収益ゼロ
+        selected_idx = torch.argmax(Z, dim=1)  # (B,)
+        selected_utility = torch.gather(U, 1, selected_idx.unsqueeze(1)).squeeze(1)  # (B,)
+        ir_mask = (selected_utility >= 0.0).float()  # (B,)
+        
+        # 収益計算: IR制約を満たさない場合は0
+        rev_per_buyer = (Z * beta.unsqueeze(0)).sum(dim=1) * ir_mask  # (B,)
+        rev = rev_per_buyer.mean()
+        
+        if debug:
+            print(f"  [DEBUG-REV-GUMBEL] Z shape: {Z.shape}, is one-hot: {(Z.sum(dim=1) == 1.0).all().item()}", flush=True)
+            print(f"  [DEBUG-REV-GUMBEL] Selected indices: {selected_idx[:5].tolist()}", flush=True)
+            print(f"  [DEBUG-REV-GUMBEL] Selected utilities: {selected_utility[:5].tolist()}", flush=True)
+            print(f"  [DEBUG-REV-GUMBEL] IR constraint satisfied: {ir_mask.sum().item()}/{len(ir_mask)}", flush=True)
+            print(f"  [DEBUG-REV-GUMBEL] Revenue per buyer (first 5): {rev_per_buyer[:5].tolist()}", flush=True)
+    else:
+        # 従来のSoftmax relaxation
+        if verbose:
+            print(f"  Computing soft assignment (lambda={lam})...", flush=True)
+        Z = soft_assignment(U, lam)  # (B,K)
+        rev = (Z * beta.unsqueeze(0)).sum(dim=1).mean()
+        
+        if debug:
+            print(f"  [DEBUG-REV] Z shape: {Z.shape}, beta shape: {beta.shape}", flush=True)
+            print(f"  [DEBUG-REV] Z[0] (first valuation selection probs): min={Z[0].min().item():.6f}, max={Z[0].max().item():.6f}", flush=True)
+            print(f"  [DEBUG-REV] Z[:, -1] (null selection): min={Z[:, -1].min().item():.6f}, max={Z[:, -1].max().item():.6f}, mean={Z[:, -1].mean().item():.6f}", flush=True)
+            print(f"  [DEBUG-REV] beta range: [{beta.min().item():.4f}, {beta.max().item():.4f}]", flush=True)
+            print(f"  [DEBUG-REV] beta[-1] (null price): {beta[-1].item():.6f}", flush=True)
+            print(f"  [DEBUG-REV] (Z * beta) per valuation: {(Z * beta.unsqueeze(0)).sum(dim=1)[:5].tolist()}", flush=True)
     
     if verbose:
-        print(f"  Revenue: {-rev.item():.6f}", flush=True)
+        print(f"  Revenue: {rev.item():.6f} ({'Gumbel+STE' if use_gumbel else 'Softmax'})", flush=True)
     return -rev
 
 # テスト時

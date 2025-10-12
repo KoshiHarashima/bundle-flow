@@ -67,12 +67,6 @@ python src/train_stage2.py \
   --out_dir checkpoints_stage2
 ```
 
-```
-
-python -m src.train_stage2  --flow_ckpt checkpoints/flow_stage1_final.pt  --m 50  --K 512  --D 8  --iters 20000  --batch 128  --lr 0.3  --a 20  --n_val 5000  --out_dir checkpoints
-
-```
-
 If you want to use CATS, run this!  
 
 ```

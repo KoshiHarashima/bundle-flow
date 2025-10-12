@@ -123,6 +123,72 @@ def to_device(obj: Any, device: torch.device) -> Any:
         return type(obj)(c) if isinstance(obj, tuple) else c
     return obj
 
+# ---- Gumbel-Softmax + Straight-Through Estimator ------------------------------
+def gumbel_softmax(logits: torch.Tensor, 
+                   tau: float = 1.0, 
+                   hard: bool = False, 
+                   dim: int = -1,
+                   eps: float = 1e-10) -> torch.Tensor:
+    """
+    Gumbel-Softmax sampling (Jang et al. 2017, Maddison et al. 2017)
+    
+    カテゴリカル分布からのサンプリングを微分可能にする手法。
+    
+    Args:
+        logits: (*, num_classes) 未正規化ログ確率
+        tau: 温度パラメータ（低いほどhard argmaxに近づく）
+        hard: Trueならforward時にhard one-hot、Falseならsoft確率
+        dim: softmax次元
+        eps: 数値安定性のための小さい値
+    
+    Returns:
+        sampled: (*, num_classes) one-hot（hard時）またはソフト確率
+        
+    Example:
+        >>> logits = torch.tensor([[1.0, 2.0, 0.5]])
+        >>> y = gumbel_softmax(logits, tau=0.1, hard=True)
+        >>> y  # tensor([[0., 1., 0.]])  ← argmax=1
+    """
+    # Gumbelノイズを追加
+    gumbels = -torch.log(-torch.log(torch.rand_like(logits) + eps) + eps)
+    gumbels = (logits + gumbels) / tau
+    y_soft = torch.softmax(gumbels, dim=dim)
+    
+    if hard:
+        # Straight-through estimator
+        # Forward: hard one-hot
+        index = y_soft.argmax(dim=dim, keepdim=True)
+        y_hard = torch.zeros_like(logits).scatter_(dim, index, 1.0)
+        
+        # Backward: softmaxの勾配を使用
+        # この"マジック"により、forward=hard, backward=softが実現される
+        ret = y_hard - y_soft.detach() + y_soft
+    else:
+        ret = y_soft
+    
+    return ret
+
+
+def sample_gumbel(shape: Tuple[int, ...], 
+                  device: Optional[torch.device] = None,
+                  eps: float = 1e-10) -> torch.Tensor:
+    """
+    Gumbel(0, 1)分布からのサンプリング
+    
+    Gumbel分布: F(x) = exp(-exp(-x))
+    
+    Args:
+        shape: 出力のshape
+        device: デバイス
+        eps: 数値安定性
+        
+    Returns:
+        Gumbel samples
+    """
+    U = torch.rand(shape, device=device)
+    return -torch.log(-torch.log(U + eps) + eps)
+
+
 # ---- Hard argmax 収益（推論） ----------------------------------------------
 @torch.no_grad()
 def eval_revenue_argmax(V: List[Any],

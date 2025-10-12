@@ -117,7 +117,9 @@ def train_stage1(args):
             lambda_j=args.lambda_j,
             lambda_k=args.lambda_k,
             lambda_tr=args.lambda_tr,
-            return_stats=True
+            return_stats=True,
+            use_ste=args.use_ste,
+            ste_tau=args.ste_tau
         )
         loss, stats = result
         
@@ -262,6 +264,10 @@ if __name__ == "__main__":
     ap.add_argument("--out_dir", type=str, default="checkpoints")
     ap.add_argument("--ckpt_every", type=int, default=5000)
     ap.add_argument("--log_every", type=int, default=200)
+    
+    # Straight-Through Estimator（STEによる離散化改善）
+    ap.add_argument("--use_ste", action="store_true", help="Use STE for bundle rounding (improves gradients)")
+    ap.add_argument("--ste_tau", type=float, default=0.1, help="STE sigmoid temperature (lower = sharper)")
     
     # その他
     ap.add_argument("--ode_steps", type=int, default=25)

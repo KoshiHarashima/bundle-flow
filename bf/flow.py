@@ -133,6 +133,35 @@ class FlowModel(nn.Module):
     def round_to_bundle(self, s_T: torch.Tensor, tau: float = 0.5) -> torch.Tensor:
         # s = I(φ(T,s0) ≥ 0.5)  （Eq.(19), (21)）
         return (s_T >= tau).to(s_T.dtype)
+    
+    def round_to_bundle_ste(self, s_T: torch.Tensor, tau: float = 0.1, threshold: float = 0.5) -> torch.Tensor:
+        """
+        Straight-Through Estimator版のround_to_bundle
+        
+        Forward時: Hard thresholding（テストと同じ）
+        Backward時: Sigmoidの勾配を使用（微分可能）
+        
+        Args:
+            s_T: 連続値 [0,1]^m
+            tau: sigmoid温度（低いほど急峻）
+            threshold: 閾値（デフォルト0.5）
+            
+        Returns:
+            s: 離散バンドル {0,1}^m（forwardは離散、backwardは連続勾配）
+        """
+        # Hard threshold (forward)
+        s_hard = (s_T >= threshold).to(s_T.dtype)
+        
+        # Soft approximation (backward)
+        # sigmoid((x - threshold) / tau) で threshold 付近を滑らかに近似
+        s_soft = torch.sigmoid((s_T - threshold) / tau)
+        
+        # Straight-through trick
+        # Forward: s_hard が使われる
+        # Backward: s_soft の勾配が s_T に流れる
+        s = s_hard - s_soft.detach() + s_soft
+        
+        return s
 
     def phi(self, t: torch.Tensor, s_t: torch.Tensor, s0: torch.Tensor) -> torch.Tensor:
         # φ(t,s_t) = η(t)·Q(s0)·s_t  （Eq.(9)）
@@ -272,12 +301,20 @@ class FlowModel(nn.Module):
         lambda_k: float = 0.0,
         lambda_tr: float = 0.0,
         return_stats: bool = False,
+        use_ste: bool = False,
+        ste_tau: float = 0.1,
     ):
         # LFlow = E || (s_T - s_0) - φ(t,s_t) ||^2  （Eq.(15)）
         # s_t = t s_T + (1-t) s_0                     （Eq.(16)）
         # s_T ~ N( round(s_0), σ_z^2 I )              （Eq.(14)）
         s0 = self.sample_mog(B, mus, sigmas, weights)      # (B,m)
-        s = self.round_to_bundle(s0)                       # (B,m)
+        
+        # ラウンディング: STEを使うかどうか
+        if use_ste:
+            s = self.round_to_bundle_ste(s0, tau=ste_tau)  # STE版（勾配が流れる）
+        else:
+            s = self.round_to_bundle(s0)                    # 従来版（勾配なし）
+        
         sT = s + sigma_z * torch.randn_like(s0)            # (B,m)
         t = torch.rand(B, device=s0.device)                # t ~ U[0,1]
         s_t = t.unsqueeze(-1) * sT + (1.0 - t).unsqueeze(-1) * s0
