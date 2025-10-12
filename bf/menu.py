@@ -9,7 +9,9 @@ from typing import List
 class MenuElement(nn.Module):
     def __init__(self, m: int, D: int):
         super().__init__()
-        self.beta_raw = nn.Parameter(torch.tensor(-2.0))  # 初期値を負に（softplusで小さい正の値）
+        # βの初期化を多様化（-3.0から-1.0の範囲でランダム）
+        beta_init = torch.randn(1) * 0.5 - 2.0  # mean=-2.0, std=0.5
+        self.beta_raw = nn.Parameter(beta_init)
         self.logits = nn.Parameter(torch.zeros(D))        # 混合重みのロジット
         self.mus = nn.Parameter(torch.zeros(D, m))        # 初期分布の支持 μ_d^(k)
 
@@ -85,7 +87,7 @@ def utilities_matrix_batched(flow, V: List, menu: List[MenuElement], t_grid: tor
     # 通常のメニュー要素のmusを統合: [(D, m)] * K_main -> (K_main, D, m)
     all_mus = torch.stack([elem.mus for elem in menu_main])  # (K_main, D, m)
     all_weights = torch.stack([elem.weights for elem in menu_main])  # (K_main, D)
-    all_betas = torch.stack([elem.beta for elem in menu_main])  # (K_main,)
+    all_betas = torch.stack([elem.beta for elem in menu_main]).squeeze()  # (K_main,)
     
     K_main, D, m = all_mus.shape
     
@@ -352,7 +354,7 @@ def revenue_loss(flow, V: List, menu: List[MenuElement], t_grid: torch.Tensor, l
     if verbose:
         print(f"  Computing utilities matrix ({len(V)} valuations × {len(menu)} menu elements)...", flush=True)
     U = utilities_matrix(flow, V, menu, t_grid, verbose=verbose, debug=debug, v0_test=v0_test)  # (B,K)
-    beta = torch.stack([elem.beta for elem in menu])     # (K,)
+    beta = torch.stack([elem.beta for elem in menu]).squeeze()     # (K,)
     
     if use_gumbel:
         # Gumbel-Softmax + STE: Forward時にhard argmax、Backward時にsoft勾配
@@ -360,7 +362,11 @@ def revenue_loss(flow, V: List, menu: List[MenuElement], t_grid: torch.Tensor, l
             print(f"  Computing Gumbel-Softmax assignment (tau={tau}, hard=True)...", flush=True)
         
         from bf.utils import gumbel_softmax
+        if debug:
+            print(f"  [DEBUG-GUMBEL] U shape: {U.shape}, U range: [{U.min().item():.4f}, {U.max().item():.4f}]", flush=True)
         Z = gumbel_softmax(U, tau=tau, hard=True, dim=1)  # (B, K) one-hot
+        if debug:
+            print(f"  [DEBUG-GUMBEL] Z shape: {Z.shape}, Z sum per row: {Z.sum(dim=1)[:5].tolist()}", flush=True)
         
         # IR制約の明示的適用: 選択されたメニューの効用が負なら収益ゼロ
         selected_idx = torch.argmax(Z, dim=1)  # (B,)
@@ -368,10 +374,16 @@ def revenue_loss(flow, V: List, menu: List[MenuElement], t_grid: torch.Tensor, l
         ir_mask = (selected_utility >= 0.0).float()  # (B,)
         
         # 収益計算: IR制約を満たさない場合は0
+        if debug:
+            print(f"  [DEBUG-GUMBEL] beta shape: {beta.shape}, beta range: [{beta.min().item():.4f}, {beta.max().item():.4f}]", flush=True)
         rev_per_buyer = (Z * beta.unsqueeze(0)).sum(dim=1) * ir_mask  # (B,)
         rev = rev_per_buyer.mean()
         
         if debug:
+            print(f"  [DEBUG-REV-GUMBEL] U range: [{U.min().item():.4f}, {U.max().item():.4f}]", flush=True)
+            print(f"  [DEBUG-REV-GUMBEL] U mean: {U.mean().item():.4f}", flush=True)
+            print(f"  [DEBUG-REV-GUMBEL] beta range: [{beta.min().item():.4f}, {beta.max().item():.4f}]", flush=True)
+            print(f"  [DEBUG-REV-GUMBEL] beta mean: {beta.mean().item():.4f}", flush=True)
             print(f"  [DEBUG-REV-GUMBEL] Z shape: {Z.shape}, is one-hot: {(Z.sum(dim=1) == 1.0).all().item()}", flush=True)
             print(f"  [DEBUG-REV-GUMBEL] Selected indices: {selected_idx[:5].tolist()}", flush=True)
             print(f"  [DEBUG-REV-GUMBEL] Selected utilities: {selected_utility[:5].tolist()}", flush=True)
