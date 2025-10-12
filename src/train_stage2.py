@@ -50,8 +50,8 @@ def warmstart_mus(flow: FlowModel, menu: List[MenuElement], t_grid: torch.Tensor
     m = flow.m
     torch.manual_seed(seed)
     
-    # ランダムなμグリッドを生成（[0,1]^m の一様サンプル）
-    mu_grid = torch.rand(n_grid, m, device=device)
+    # ランダムなμグリッドを生成（Stage1と同じ範囲: [-0.2, 1.2]）
+    mu_grid = torch.rand(n_grid, m, device=device) * 1.4 - 0.2  # [0,1] → [-0.2, 1.2]
     
     # flow_forward → round して代表束を得る
     sT_grid = flow.flow_forward(mu_grid, t_grid)  # (n_grid, m)
@@ -75,7 +75,7 @@ def warmstart_mus(flow: FlowModel, menu: List[MenuElement], t_grid: torch.Tensor
         
         # 小さなノイズを追加（探索のため）
         elem.mus.data += 0.05 * torch.randn_like(elem.mus.data)
-        elem.mus.data.clamp_(0.0, 1.0)
+        elem.mus.data.clamp_(-0.2, 1.2)  # Stage1と同じ範囲
     
     print(f"[WarmStart] Initialized μ for {len(menu)-1} menu elements")
 
@@ -101,8 +101,8 @@ def reinit_unused_elements(flow: FlowModel, menu: List[MenuElement], Z: torch.Te
     if n_unused > 0:
         print(f"[ReInit] Found {n_unused} unused elements (z_mean < {threshold}), reinitializing...")
         
-        # 代表束を生成
-        mu_grid = torch.rand(50, m, device=device)
+        # 代表束を生成（Stage1と同じ範囲）
+        mu_grid = torch.rand(50, m, device=device) * 1.4 - 0.2  # [-0.2, 1.2]
         sT_grid = flow.flow_forward(mu_grid, t_grid)
         bundles = flow.round_to_bundle(sT_grid)
         bundles_unique = torch.unique(bundles, dim=0)
@@ -120,7 +120,7 @@ def reinit_unused_elements(flow: FlowModel, menu: List[MenuElement], Z: torch.Te
                 
                 # ノイズ追加
                 elem.mus.data += 0.05 * torch.randn_like(elem.mus.data)
-                elem.mus.data.clamp_(0.0, 1.0)
+                elem.mus.data.clamp_(-0.2, 1.2)  # Stage1と同じ範囲
                 
                 # 価格βも軽く再初期化
                 elem.beta.data.fill_(0.1 * torch.randn(1).item())
@@ -188,19 +188,28 @@ def train_stage2(args):
     if len(V_all) > 0:
         print(f"[Stage2] Dataset check: {len(V_all)} valuations created", flush=True)
         v0 = V_all[0]
+        print(f"[Stage2] First valuation: v0.m = {v0.m}", flush=True)
         print(f"[Stage2] First valuation has {len(v0.atoms)} atoms", flush=True)
         if len(v0.atoms) > 0:
             atom0_mask, atom0_price = v0.atoms[0]
             atom0_bits = bin(atom0_mask).count('1')
-            print(f"[Stage2] First atom: {atom0_bits} items, price={atom0_price:.4f}, mask={atom0_mask}", flush=True)
+            atom0_highest = atom0_mask.bit_length() - 1
+            print(f"[Stage2] First atom: {atom0_bits} items, price={atom0_price:.4f}, mask={atom0_mask}, highest_bit={atom0_highest}", flush=True)
             # テスト：全てのアイテムを持つbundleの価値
             all_items_bundle = torch.ones(args.m, device=device)
             test_val = v0.value(all_items_bundle)
             print(f"[Stage2] Value of bundle with ALL {args.m} items: {test_val:.4f}", flush=True)
             if test_val == 0.0:
                 print(f"[Stage2] WARNING: Even with all items, value is 0! This suggests a bug.", flush=True)
+            
+            # さらに：v0.m とargs.mの比較
+            if hasattr(v0, 'm') and v0.m != args.m:
+                print(f"[Stage2] ERROR: Valuation.m ({v0.m}) != args.m ({args.m})!", flush=True)
     
     train, test = train_test_split(V_all, train_ratio=0.95, seed=args.seed)
+    
+    # デバッグ用：v0を保存（起動時テストで成功したvaluation）
+    v0_for_debug = V_all[0]
 
     # 時間グリッド（Eq.(12),(20) の離散化）
     t_grid = torch.linspace(0.0, 1.0, steps=args.ode_steps, device=device)
@@ -226,7 +235,7 @@ def train_stage2(args):
         verbose = (it == 1)
         if verbose:
             print(f"\n[Iteration {it}] Starting forward pass...", flush=True)
-        loss = revenue_loss(flow, batch, menu, t_grid, lam=lam, verbose=verbose, debug=is_log_iter)
+        loss = revenue_loss(flow, batch, menu, t_grid, lam=lam, verbose=verbose, debug=is_log_iter, v0_test=v0_for_debug)
 
         opt.zero_grad()
         loss.backward()

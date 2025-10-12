@@ -3,43 +3,10 @@ I'm an exchange student at Northwestern University.
 
 This code was created for experiments in the field of economics, especially in multi-product auction theory.
 
-## 🆕 Recent Improvements (2025-10-11)
 
-**Stage 1 & Stage 2 の大幅な改善を実装しました！**
-
-### Stage 1: 学習の安定化
-- ✅ ネットワーク初期化とスケール制御の改善
-- ✅ Cosine annealing 学習率スケジューラ
-- ✅ 正則化（Jacobian, Kinetic, Trace罰則）
-- ✅ η(t)飽和対策（c_eta パラメータ化）
-- ✅ 詳細な統計ログ（CSV / TensorBoard）
-
-### Stage 2: 数値安定性と探索品質
-- ✅ 式(21)のlog-sum-exp実装（数値安定性）
-- ✅ μのウォームスタート（初期収束加速）
-- ✅ 弱い再初期化（探索の質向上）
-
-**詳細**: [IMPLEMENTATION_SUMMARY.md](./IMPLEMENTATION_SUMMARY.md)
-
-**クイックスタート**:
-```bash
-# Stage 1（推奨設定）
-python -m src.train_stage1 \
-  --m 50 --iters 50000 --batch 512 --lr 1e-3 \
-  --lambda_j 1e-3 --lambda_k 1e-3 --lambda_tr 1e-4 \
-  --use_scheduler --use_csv \
-  --out_dir checkpoints
-
-# Stage 2
-python src/train_stage2.py \
-  --flow_ckpt checkpoints/flow_stage1_final.pt \
-  --m 50 --K 512 --D 8 --iters 20000 \
-  --warmstart --reinit_every 2000 \
-  --out_dir checkpoints_stage2
 ```
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 This work is based on the folloing paper;   
 
 Wang, Tonghan, Yanchen Jiang, and David C. Parkes. 2025. “BundleFlow: Deep Menus for Combinatorial Auctions by Diffusion-Based Optimization.” arXiv [Cs.GT]. arXiv. http://arxiv.org/abs/2502.15283.
@@ -81,29 +48,20 @@ pip install -r requirements.txt
 Second, run src.train_stage1. 
 
 python -m src.train_stage1 \
-  --m 50 \
-  --D 8 \
-  --iters 60000 \
-  --batch 1024 \
-  --lr 5e-3 \
-  --sigma_z 0.05 \
+  --m 50 --iters 50000 --batch 512 --lr 1e-3 \
+  --lambda_j 1e-3 --lambda_k 1e-3 --lambda_tr 1e-4 \
+  --use_scheduler --use_csv \
   --out_dir checkpoints
 
 python -m src.train_stage1 --m 50 --D 8 --iters 60000 --batch 1024 --lr 5e-3 --sigma_z 0.05 --out_dir checkpoints
 
 Third, run src.train_stage2.  
 
-python -m src.train_stage2 \
+python src/train_stage2.py \
   --flow_ckpt checkpoints/flow_stage1_final.pt \
-  --m 50 \
-  --K 512 \
-  --D 8 \
-  --iters 20000 \
-  --batch 128 \
-  --lr 0.3 \
-  --a 20 \
-  --n_val 5000 \
-  --out_dir checkpoints
+  --m 50 --K 512 --D 8 --iters 20000 \
+  --warmstart --reinit_every 2000 \
+  --out_dir checkpoints_stage2
 
 
 python -m src.train_stage2  --flow_ckpt checkpoints/flow_stage1_final.pt  --m 50  --K 512  --D 8  --iters 20000  --batch 128  --lr 0.3  --a 20  --n_val 5000  --out_dir checkpoints

@@ -42,7 +42,7 @@ class XORValuation:
 
     # ---- 値関数 v(S) ----------------------------------------------------------
     
-    def value(self, s_bool: Sequence[float] | torch.Tensor) -> float:
+    def value(self, s_bool: Sequence[float] | torch.Tensor, debug: bool = False) -> float:
         """
         v(S) = max_{(T, bid)} { bid : T ⊆ S }  （XORの意味；Sec.2）
         ※ 本メソッドは Eq.(21) の v(s(μ_d))、および Eq.(19) の v(s) に相当
@@ -53,38 +53,35 @@ class XORValuation:
             # list/np.ndarray想定
             t = torch.tensor(s_bool, dtype=torch.float32)
             Sm = _tensor_to_mask(t)
+        
         val = 0.0
+        matched_count = 0
         for mk, p in self.atoms:
-            if mk & (~Sm) == 0:  # T⊆S 判定（ビット包含）
+            check = mk & (~Sm)
+            is_match = (check == 0)
+            if debug:
+                print(f"    [value DEBUG] atom_mask={mk}, Sm={Sm}, check={check}, match={is_match}, price={p:.4f}")
+            if is_match:  # T⊆S 判定（ビット包含）
+                matched_count += 1
                 if p > val:
                     val = p
+        
+        if debug:
+            print(f"    [value DEBUG] Total matched: {matched_count}/{len(self.atoms)}, final value: {val:.4f}")
+        
         return float(val)
 
     def batch_value(self, S_bool: torch.Tensor) -> torch.Tensor:
         """
         バッチ版 v(S_b)（Eq.(21), Eq.(19) の高速化）。S_bool: (B,m) ∈ {0,1}^m
-        シンプルなループ実装（確実に動作する）
+        value()を直接呼ぶ実装（最も確実）
         """
         B, m = S_bool.shape
         device = S_bool.device
         
-        # 各行をマスクに変換
-        S_cpu = S_bool.cpu()
-        masks = []
-        for b in range(B):
-            masks.append(_tensor_to_mask(S_cpu[b]))
-        
-        # 出力を初期化
+        # 各bundleについてvalue()を直接呼ぶ
         out = torch.zeros(B, dtype=torch.float32, device=device)
-        
-        # 各バッチについて、value()と同じロジックを実行
         for b in range(B):
-            val = 0.0
-            for atom_mask, price in self.atoms:
-                # T⊆S の判定: (atom_mask & ~Sm) == 0
-                if (atom_mask & (~masks[b])) == 0:
-                    if price > val:
-                        val = price
-            out[b] = val
+            out[b] = self.value(S_bool[b])
         
         return out
