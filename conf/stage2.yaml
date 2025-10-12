@@ -1,0 +1,32 @@
+m: 50
+K: 512
+D: 4
+iters: 20000
+batch: 128
+lr: 3e-1
+ode_steps: 25
+lam_start: 1e-3
+lam_end: 2e-1
+flow_ckpt: "checkpoints/flow_stage1_final.pt"
+seed: 123
+device: "auto"
+cats_glob: ""       # 例: "cats_out/*.txt"
+a: 20               # 合成XORの原子数
+n_val: 5000
+warmup_iters: 500
+match_rate_threshold: 0.01
+reinit_on_failure: 100
+freeze_beta_iters: 1000
+auto_optimize: true
+use_gumbel: false
+tau_start: 1.0
+tau_end: 0.01
+warmstart: true
+warmstart_grid: 200
+reinit_every: 2000
+reinit_threshold: 0.01
+grad_clip: 1.0
+ckpt_every: 5000
+log_every: 200
+eval_n: 1000
+max_files: null

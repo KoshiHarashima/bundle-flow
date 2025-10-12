@@ -1,0 +1,10 @@
+m: 50
+D: 8
+iters: 60000
+batch: 1024
+lr: 5e-3
+sigma_z: 0.05
+ode_steps: 25
+seed: 42
+device: "auto"     # "cuda"|"cpu"|"mps"|"auto"
+out_dir: "checkpoints"

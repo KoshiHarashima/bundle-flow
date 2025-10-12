@@ -12,7 +12,7 @@ import torch.optim as optim
 from bf.flow import FlowModel
 from bf.menu import MenuElement, make_null_element, revenue_loss, utilities_matrix
 from bf.data import load_cats_dir, train_test_split, gen_uniform_iid_xor
-from bf.valuation import XORValuation
+from bf.valuation import XORValuation, _tensor_to_mask
 
 # ---------- utils（最小限） ----------
 def seed_all(seed: int):
@@ -328,6 +328,10 @@ def train_stage2(args):
     
     # デバッグ用：v0を保存（起動時テストで成功したvaluation）
     v0_for_debug = V_all[0]
+    
+    # 失敗ガード用の変数
+    consecutive_zero_match = 0
+    last_match_rate = 0.0
 
     # 時間グリッド（Eq.(12),(20) の離散化）
     t_grid = torch.linspace(0.0, 1.0, steps=args.ode_steps, device=device)
@@ -392,8 +396,14 @@ def train_stage2(args):
             elif torch.backends.mps.is_available():
                 torch.mps.empty_cache()
 
-        # λ（Eq.(23)）をスケジュール
-        lam = lambda_schedule(it, args.iters, start=args.lam_start, end=args.lam_end)
+        # λ（Eq.(23)）をスケジュール（ウォームアップ対応）
+        if it <= args.warmup_iters:
+            # ウォームアップ期間：低いλで探索
+            lam = args.lam_start * (it / args.warmup_iters)
+        else:
+            # 通常期間：λを0.2へ
+            progress = (it - args.warmup_iters) / (args.iters - args.warmup_iters)
+            lam = args.lam_start + (0.2 - args.lam_start) * progress
         
         # Gumbel-Softmax温度をアニーリング（use_gumbelの時のみ使用）
         if args.use_gumbel:
@@ -415,6 +425,22 @@ def train_stage2(args):
             visualize_menu(flow, menu, t_grid, max_items=8, device=device)
         loss = revenue_loss(flow, batch_device, menu, t_grid, lam=lam, verbose=verbose, debug=is_log_iter, 
                            v0_test=v0_for_debug, use_gumbel=args.use_gumbel, tau=tau)
+        
+        # 失敗ガード：マッチ率の監視
+        if is_log_iter:
+            # マッチ率の計算（簡易版）
+            match_rate = calculate_match_rate(batch_device, menu, t_grid, device)
+            last_match_rate = match_rate
+            
+            if match_rate < args.match_rate_threshold:
+                consecutive_zero_match += 1
+                if consecutive_zero_match >= args.reinit_on_failure:
+                    print(f"\n[Iteration {it}] ⚠️  Match rate {match_rate:.4f} < {args.match_rate_threshold} for {consecutive_zero_match} iterations")
+                    print(f"[Iteration {it}] 🔄 Reinitializing μ parameters...")
+                    reinitialize_menu_elements(menu, device)
+                    consecutive_zero_match = 0
+            else:
+                consecutive_zero_match = 0
 
         opt.zero_grad()
         loss.backward()
@@ -489,6 +515,34 @@ def train_stage2(args):
 
 # ---------- 評価（テスト時はハードargmax；Sec.3.3） ----------
 @torch.no_grad()
+def calculate_match_rate(V: List[XORValuation], menu: List[MenuElement], t_grid: torch.Tensor, device: torch.device) -> float:
+    """マッチ率を計算（atom_mask & ~bundle_mask)==0 の割合"""
+    total_matches = 0
+    total_checks = 0
+    
+    for v in V[:10]:  # サンプルで計算
+        for elem in menu[:5]:  # 最初の5要素
+            sT = flow.flow_forward(elem.mus, t_grid)
+            s = flow.round_to_bundle(sT)
+            
+            for d in range(min(s.shape[0], 10)):  # 最初の10個のbundle
+                bundle_mask = _tensor_to_mask(s[d])
+                for atom_mask, _ in v.atoms:
+                    if (atom_mask & (~bundle_mask)) == 0:
+                        total_matches += 1
+                    total_checks += 1
+    
+    return total_matches / max(1, total_checks)
+
+@torch.no_grad()
+def reinitialize_menu_elements(menu: List[MenuElement], device: torch.device):
+    """メニュー要素のμパラメータを再初期化"""
+    for elem in menu:
+        # μをランダムに再初期化
+        elem.mus.data = torch.randn_like(elem.mus.data) * 0.1
+        elem.mus.data = elem.mus.data.to(device)
+
+@torch.no_grad()
 def eval_hard_revenue(flow: FlowModel, V: List[XORValuation], menu: List[MenuElement], t_grid: torch.Tensor) -> float:
     device = t_grid.device
     total = 0.0
@@ -543,6 +597,9 @@ if __name__ == "__main__":
     ap.add_argument("--reinit_every", type=int, default=2000, help="Reinitialize unused elements every N steps (0=disable)")
     ap.add_argument("--reinit_threshold", type=float, default=0.01, help="Reinit elements with z_mean < threshold")
     ap.add_argument("--freeze_beta_iters", type=int, default=1000, help="Freeze β for first N iterations (warmup)")
+    ap.add_argument("--warmup_iters", type=int, default=500, help="Warmup iterations with low λ")
+    ap.add_argument("--match_rate_threshold", type=float, default=0.01, help="Minimum match rate threshold")
+    ap.add_argument("--reinit_on_failure", type=int, default=100, help="Reinitialize μ if match rate is 0% for N consecutive iterations")
 
     args = ap.parse_args()
     train_stage2(args)

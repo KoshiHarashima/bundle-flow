@@ -1,14 +1,7 @@
-# bf package
-"""
-BundleFlow core library
-
-Modules:
-- flow: FlowModel, QNet, EtaNet
-- menu: MenuElement, utility functions
-- data: Data loading and generation
-- valuation: XORValuation and related classes
-- utils: Utility functions
-"""
-
-__version__ = "1.0.0"
-
+import warnings
+warnings.warn("`bf` は廃止予定。`bundleflow` を使用してください。", DeprecationWarning)
+from bundleflow.flow import *      # noqa
+from bundleflow.menu import *      # noqa
+from bundleflow.valuation import * # noqa
+from bundleflow.data import *      # noqa
+from bundleflow.utils import *     # noqa

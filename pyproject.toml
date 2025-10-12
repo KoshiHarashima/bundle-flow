@@ -1,0 +1,23 @@
+[project]
+name = "bundleflow"
+version = "0.1.0"
+description = "Rectified Flow–based menus for combinatorial auctions"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "torch>=2.2",
+  "omegaconf>=2.3",        # 設定読込（軽量）
+  "tqdm",
+  "numpy",
+]
+
+[project.scripts]
+bundleflow-stage1 = "bundleflow.cli.stage1:main"
+bundleflow-stage2 = "bundleflow.cli.stage2:main"
+
+[tool.ruff]
+line-length = 100
+
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
