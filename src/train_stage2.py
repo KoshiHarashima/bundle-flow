@@ -8,6 +8,7 @@ from typing import List
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from omegaconf import OmegaConf
 
 from bf.flow import FlowModel
 from bf.menu import MenuElement, make_null_element, revenue_loss, utilities_matrix
@@ -603,3 +604,81 @@ if __name__ == "__main__":
 
     args = ap.parse_args()
     train_stage2(args)
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--cfg", type=str, default=None)
+    args = ap.parse_args()
+    
+    if args.cfg:
+        # YAML設定を使用
+        cfg = OmegaConf.load(args.cfg)
+        # 既存の学習関数を呼び出し
+        train_stage2_from_config(cfg)
+    else:
+        # 従来のCLI引数を使用
+        train_stage2_cli()
+
+def train_stage2_from_config(cfg):
+    """YAML設定から学習を実行"""
+    # 設定をargparse形式に変換
+    import sys
+    sys.argv = ['train_stage2.py']
+    for key, value in cfg.items():
+        sys.argv.extend([f'--{key}', str(value)])
+    train_stage2_cli()
+
+def train_stage2_cli():
+    """従来のCLI引数で学習を実行"""
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--flow_ckpt", type=str, default="checkpoints/flow_stage1_final.pt")
+    ap.add_argument("--resume_ckpt", type=str, default="", help="Resume from Stage2 checkpoint")
+    ap.add_argument("--m", type=int, default=50)
+    ap.add_argument("--K", type=int, default=512)      # 実験既定は m≤100で5k/それ以上で20k。
+    ap.add_argument("--D", type=int, default=8)        # 有限支持サイズ（Dirac混合の個数）。
+    ap.add_argument("--iters", type=int, default=20000)
+    ap.add_argument("--batch", type=int, default=128)
+    ap.add_argument("--lr", type=float, default=3e-1)  # Setup: 0.3 を推奨。
+    ap.add_argument("--lam_start", type=float, default=1e-3)
+    ap.add_argument("--lam_end", type=float, default=1e-1)  # 0.2 → 0.1（速めに上げる）
+    ap.add_argument("--ode_steps", type=int, default=25)
+    ap.add_argument("--grad_clip", type=float, default=1.0)
+    ap.add_argument("--out_dir", type=str, default="checkpoints")
+    ap.add_argument("--ckpt_every", type=int, default=5000)
+    ap.add_argument("--log_every", type=int, default=200)
+    ap.add_argument("--seed", type=int, default=123)
+
+    # データ（CATS or 合成）
+    ap.add_argument("--cats_glob", type=str, default="")  # 例: "cats_out/*.txt"
+    ap.add_argument("--max_files", type=int, default=None)
+    ap.add_argument("--n_val", type=int, default=5000)    # 合成の本数
+    ap.add_argument("--a", type=int, default=20)          # 合成XORの原子数（Table 4 を模倣）
+    ap.add_argument("--atom_size_mode", type=str, default="small", 
+                    choices=["small", "medium", "large", "uniform_3_8"],
+                    help="Atom size distribution: small(~5 items), medium(~10), large(~25), uniform_3_8(3-8)")
+    ap.add_argument("--eval_n", type=int, default=1000)
+    ap.add_argument("--cpu", action="store_true")
+    ap.add_argument("--auto_optimize", action="store_true", default=True,
+                    help="Auto-optimize parameters for detected hardware")
+    ap.add_argument("--no_auto_optimize", action="store_true", help="Disable auto-optimization")
+    
+    # Gumbel-Softmax + STE（Stage 2の破綻を修正）
+    ap.add_argument("--use_gumbel", action="store_true", help="Use Gumbel-Softmax + STE (fixes training-test gap)")
+    ap.add_argument("--tau_start", type=float, default=1.0, help="Initial Gumbel-Softmax temperature")
+    ap.add_argument("--tau_end", type=float, default=0.01, help="Final Gumbel-Softmax temperature")
+    
+    # μのウォームスタート＋再初期化
+    ap.add_argument("--warmstart", action="store_true", help="Enable μ warmstart from representative bundles")
+    ap.add_argument("--warmstart_grid", type=int, default=200, help="Number of random μ samples for warmstart")
+    ap.add_argument("--reinit_every", type=int, default=2000, help="Reinitialize unused elements every N steps (0=disable)")
+    ap.add_argument("--reinit_threshold", type=float, default=0.01, help="Reinit elements with z_mean < threshold")
+    ap.add_argument("--freeze_beta_iters", type=int, default=1000, help="Freeze β for first N iterations (warmup)")
+    ap.add_argument("--warmup_iters", type=int, default=500, help="Warmup iterations with low λ")
+    ap.add_argument("--match_rate_threshold", type=float, default=0.01, help="Minimum match rate threshold")
+    ap.add_argument("--reinit_on_failure", type=int, default=100, help="Reinitialize μ if match rate is 0% for N consecutive iterations")
+
+    args = ap.parse_args()
+    train_stage2(args)
+
+if __name__ == "__main__":
+    main()

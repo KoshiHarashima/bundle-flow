@@ -11,7 +11,7 @@ flow_ckpt: "checkpoints/flow_stage1_final.pt"
 seed: 123
 device: "auto"
 cats_glob: ""       # 例: "cats_out/*.txt"
-a: 20               # 合成XORの原子数
+a: 20               # 合成XORの原子数（※大きすぎない設定に）
 n_val: 5000
 warmup_iters: 500
 match_rate_threshold: 0.01
@@ -30,3 +30,6 @@ ckpt_every: 5000
 log_every: 200
 eval_n: 1000
 max_files: null
+atom_size_mode: "small"
+cpu: false
+resume_ckpt: ""

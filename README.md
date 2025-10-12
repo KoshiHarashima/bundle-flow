@@ -9,8 +9,26 @@ Rectified Flow–based menus for combinatorial auctions
 ```bash
 git clone https://github.com/KoshiHarashima/bundle-flow
 cd bundle-flow
-python -m pip install -e .
+
+# 1) Torch CUDA wheel を明示（環境に合わせて cu118/cu121 等）
+python -m pip install "torch==2.5.1" --index-url https://download.pytorch.org/whl/cu121
+
+# 2) 再現性フラグ（任意）
+python - <<'PY'
+import os, torch
+os.environ.setdefault("CUBLAS_WORKSPACE_CONFIG", ":4096:8")
+torch.use_deterministic_algorithms(True)
+print("deterministic set")
+PY
+
+# 3) サニティ
 python tools/envcheck.py
+
+# 4) インストール
+pip install -e .
+
+# 5) 実行
+bundleflow-stage1 --cfg conf/stage1.yaml
 ```
 
 ### Colab環境での実行

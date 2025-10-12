@@ -1,0 +1,17 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+authors:
+- family-names: "Harashima"
+  given-names: "Koshi"
+  orcid: "https://orcid.org/0000-0000-0000-0000"
+title: "BundleFlow: Rectified Flow-based Menus for Combinatorial Auctions"
+version: 0.1.0
+date-released: 2024-01-01
+url: "https://github.com/KoshiHarashima/bundle-flow"
+license: MIT
+keywords:
+  - combinatorial auctions
+  - rectified flow
+  - menu optimization
+  - machine learning
+  - economics

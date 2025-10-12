@@ -11,9 +11,12 @@ dependencies = [
   "numpy",
 ]
 
+[tool.setuptools.packages.find]
+include = ["bf*", "brn*"]  # 既存構成を尊重。将来は bundleflow/ に移行
+
 [project.scripts]
-bundleflow-stage1 = "bundleflow.cli.stage1:main"
-bundleflow-stage2 = "bundleflow.cli.stage2:main"
+bundleflow-stage1 = "src.train_stage1:main"
+bundleflow-stage2 = "src.train_stage2:main"
 
 [tool.ruff]
 line-length = 100

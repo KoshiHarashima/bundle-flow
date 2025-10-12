@@ -7,6 +7,7 @@ import csv
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from omegaconf import OmegaConf
 
 from bf.flow import FlowModel  # φ(t,s_t)=η(t)Q(s0)s_t, RectifiedFlow損失など実装済
 
@@ -213,7 +214,31 @@ def train_stage1(args):
             cov = len(uniq) / (2 ** args.m)
             print(f"Coverage probe: {len(uniq)}/{2**args.m} = {cov:.6f}")
 
-if __name__ == "__main__":
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--cfg", type=str, default=None)
+    args = ap.parse_args()
+    
+    if args.cfg:
+        # YAML設定を使用
+        cfg = OmegaConf.load(args.cfg)
+        # 既存の学習関数を呼び出し
+        train_stage1_from_config(cfg)
+    else:
+        # 従来のCLI引数を使用
+        train_stage1_cli()
+
+def train_stage1_from_config(cfg):
+    """YAML設定から学習を実行"""
+    # 設定をargparse形式に変換
+    import sys
+    sys.argv = ['train_stage1.py']
+    for key, value in cfg.items():
+        sys.argv.extend([f'--{key}', str(value)])
+    train_stage1_cli()
+
+def train_stage1_cli():
+    """従来のCLI引数で学習を実行"""
     ap = argparse.ArgumentParser()
     # 基本パラメータ
     ap.add_argument("--m", type=int, default=50)
@@ -277,3 +302,6 @@ if __name__ == "__main__":
     
     args = ap.parse_args()
     train_stage1(args)
+
+if __name__ == "__main__":
+    main()
