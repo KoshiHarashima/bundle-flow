@@ -133,7 +133,8 @@ def make_dataset(args) -> List[XORValuation]:
         V = load_cats_dir(args.cats_glob, m=args.m, keep_dummy=None, max_files=args.max_files, shuffle=True)
     else:
         # 合成XOR（Table 4 の原子数 a を模倣）を N 本生成。:contentReference[oaicite:5]{index=5}
-        V = [gen_uniform_iid_xor(args.m, a=args.a, low=0.0, high=1.0, seed=1337 + i) for i in range(args.n_val)]
+        V = [gen_uniform_iid_xor(args.m, a=args.a, low=0.0, high=1.0, seed=1337 + i, 
+                                 atom_size_mode=args.atom_size_mode) for i in range(args.n_val)]
     return V
 
 # ---------- 学習本体（Eq.(21)→(22) 最適化） ----------
@@ -329,6 +330,9 @@ if __name__ == "__main__":
     ap.add_argument("--max_files", type=int, default=None)
     ap.add_argument("--n_val", type=int, default=5000)    # 合成の本数
     ap.add_argument("--a", type=int, default=20)          # 合成XORの原子数（Table 4 を模倣）
+    ap.add_argument("--atom_size_mode", type=str, default="small", 
+                    choices=["small", "medium", "large", "uniform_3_8"],
+                    help="Atom size distribution: small(~5 items), medium(~10), large(~25), uniform_3_8(3-8)")
     ap.add_argument("--eval_n", type=int, default=1000)
     ap.add_argument("--cpu", action="store_true")
     

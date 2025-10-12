@@ -93,16 +93,37 @@ def train_test_split(V: List[XORValuation], train_ratio: float = 0.95, seed: int
 
 # ---------- Synthetic XOR generators  ------------------------
 
-def gen_uniform_iid_xor(m: int, a: int, low: float = 0.0, high: float = 1.0, seed: Optional[int] = None) -> XORValuation:
+def gen_uniform_iid_xor(m: int, a: int, low: float = 0.0, high: float = 1.0, seed: Optional[int] = None, 
+                        atom_size_mode: str = "small") -> XORValuation:
     """
     [0.0, 1.0]のi.i.d.でvaluationが出る場合についてのデータを作成する
+    
+    atom_size_mode:
+        "small": p=0.1で各アイテム採択（平均5個、CATS風）
+        "medium": p=0.2で各アイテム採択（平均10個）
+        "large": p=0.5で各アイテム採択（平均m/2個、元の実装）
+        "uniform_3_8": サイズを3-8の一様分布で選択
     """
     rng = random.Random(seed)
     atoms: List[Tuple[List[int], float]] = []
     seen = set()
+    
     while len(atoms) < a:
-        # 0/1の独立選択で非空集合を生成
-        S = [i for i in range(1, m + 1) if rng.random() < 0.5]
+        # 原子サイズの生成方法を選択
+        if atom_size_mode == "small":
+            # p=0.1で各アイテム採択（平均5個）
+            S = [i for i in range(1, m + 1) if rng.random() < 0.1]
+        elif atom_size_mode == "medium":
+            # p=0.2で各アイテム採択（平均10個）
+            S = [i for i in range(1, m + 1) if rng.random() < 0.2]
+        elif atom_size_mode == "uniform_3_8":
+            # サイズを3-8の一様分布で選択
+            k = rng.randint(3, 8)
+            S = rng.sample(range(1, m + 1), k)
+        else:  # "large" (元の実装)
+            # p=0.5で各アイテム採択（平均m/2個）
+            S = [i for i in range(1, m + 1) if rng.random() < 0.5]
+        
         if not S:
             continue
         key = tuple(sorted(S))
@@ -111,6 +132,7 @@ def gen_uniform_iid_xor(m: int, a: int, low: float = 0.0, high: float = 1.0, see
         seen.add(key)
         price = rng.uniform(low, high)
         atoms.append((list(key), price))
+    
     return XORValuation.from_bundle_list(m, atoms)
 
 # ---------- 小道具（学習補助） ---------------------------------------------------
