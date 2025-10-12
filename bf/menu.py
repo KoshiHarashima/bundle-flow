@@ -83,11 +83,20 @@ def utilities_matrix_batched(flow, V: List, menu: List[MenuElement], t_grid: tor
     
     if verbose:
         print(f"  [Batched] Running flow_forward on {K_main*D} bundles at once...", flush=True)
+        # μの範囲を確認
+        print(f"  [Batched] all_mus range: [{all_mus.min().item():.4f}, {all_mus.max().item():.4f}], mean={all_mus.mean().item():.4f}", flush=True)
     
     # 全てのμをバッチ処理: (K_main, D, m) -> (K_main*D, m)
     mus_flat = all_mus.view(K_main * D, m)
     sT_flat = flow.flow_forward(mus_flat, t_grid)  # (K_main*D, m) - 一度の呼び出し！
+    
+    if verbose:
+        print(f"  [Batched] sT_flat range BEFORE rounding: [{sT_flat.min().item():.4f}, {sT_flat.max().item():.4f}], mean={sT_flat.mean().item():.4f}", flush=True)
+    
     s_flat = flow.round_to_bundle(sT_flat)  # (K_main*D, m)
+    
+    if verbose:
+        print(f"  [Batched] s_flat range AFTER rounding: [{s_flat.min().item():.4f}, {s_flat.max().item():.4f}], mean={s_flat.mean().item():.4f}", flush=True)
     
     # log_density_weightもバッチ処理
     log_density_flat = flow.log_density_weight(mus_flat, t_grid)  # (K_main*D,)
