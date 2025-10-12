@@ -144,6 +144,20 @@ def get_optimal_device(args):
     """
     if torch.cuda.is_available() and not args.cpu:
         device = torch.device("cuda")
+    elif torch.backends.mps.is_available() and not args.cpu:
+        device = torch.device("mps")
+        print(f"[Stage2] 🍎 Using Apple Metal Performance Shaders (MPS)", flush=True)
+        print(f"[Stage2] ⚡ MPS acceleration enabled for Apple Silicon", flush=True)
+        
+        # MPS用の最適化設定
+        if not hasattr(args, 'auto_optimize') or args.auto_optimize:
+            print(f"[Stage2] 🔧 Auto-optimizing parameters for Apple Silicon...", flush=True)
+            args.batch = min(args.batch * 2, 256)  # バッチサイズを2倍に
+            args.K = min(args.K * 2, 512)  # メニュー要素数を2倍に
+            args.D = min(args.D * 2, 16)  # 特徴次元を2倍に
+            print(f"[Stage2] 📊 Optimized: batch={args.batch}, K={args.K}, D={args.D}", flush=True)
+        
+        return device
         
         # GPU情報を表示
         gpu_name = torch.cuda.get_device_name(0)
@@ -318,6 +332,17 @@ def train_stage2(args):
     # 時間グリッド（Eq.(12),(20) の離散化）
     t_grid = torch.linspace(0.0, 1.0, steps=args.ode_steps, device=device)
     
+    # データセットをデバイスに移動
+    print(f"[Stage2] Moving dataset to {device}...", flush=True)
+    for v in V_all:
+        # XORValuationの内部テンソルをデバイスに移動
+        if hasattr(v, 'atoms'):
+            for atom in v.atoms:
+                if hasattr(atom, 'mask') and torch.is_tensor(atom.mask):
+                    atom.mask = atom.mask.to(device)
+                if hasattr(atom, 'price') and torch.is_tensor(atom.price):
+                    atom.price = atom.price.to(device)
+    
     # μのウォームスタート（代表束から初期化）
     if args.warmstart:
         warmstart_mus(flow, menu, t_grid, n_grid=args.warmstart_grid, seed=args.seed)
@@ -348,9 +373,24 @@ def train_stage2(args):
         B = min(args.batch, len(train))
         batch = random.sample(train, B)
         
+        # バッチデータをデバイスに移動
+        batch_device = []
+        for v in batch:
+            # XORValuationの内部テンソルをデバイスに移動
+            if hasattr(v, 'atoms'):
+                for atom in v.atoms:
+                    if hasattr(atom, 'mask') and torch.is_tensor(atom.mask):
+                        atom.mask = atom.mask.to(device)
+                    if hasattr(atom, 'price') and torch.is_tensor(atom.price):
+                        atom.price = atom.price.to(device)
+            batch_device.append(v)
+        
         # GPU メモリ効率化（定期的なクリーンアップ）
-        if it % 100 == 0 and torch.cuda.is_available():
-            torch.cuda.empty_cache()
+        if it % 100 == 0:
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+            elif torch.backends.mps.is_available():
+                torch.mps.empty_cache()
 
         # λ（Eq.(23)）をスケジュール
         lam = lambda_schedule(it, args.iters, start=args.lam_start, end=args.lam_end)
@@ -373,7 +413,7 @@ def train_stage2(args):
         if it == 1 or (is_log_iter and it % (args.log_every * 5) == 0):
             from bf.menu import visualize_menu
             visualize_menu(flow, menu, t_grid, max_items=8, device=device)
-        loss = revenue_loss(flow, batch, menu, t_grid, lam=lam, verbose=verbose, debug=is_log_iter, 
+        loss = revenue_loss(flow, batch_device, menu, t_grid, lam=lam, verbose=verbose, debug=is_log_iter, 
                            v0_test=v0_for_debug, use_gumbel=args.use_gumbel, tau=tau)
 
         opt.zero_grad()

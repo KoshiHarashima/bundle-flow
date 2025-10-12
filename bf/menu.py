@@ -26,6 +26,11 @@ class MenuElement(nn.Module):
     @property
     def weights(self) -> torch.Tensor:
         return torch.softmax(self.logits, dim=0)       # simplex
+    
+    def to(self, device):
+        """デバイス移動メソッド"""
+        super().to(device)
+        return self
 
 # IRのためにNull Menuを用意している。
 def make_null_element(m: int) -> MenuElement:
