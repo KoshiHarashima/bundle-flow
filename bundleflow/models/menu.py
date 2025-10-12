@@ -32,7 +32,22 @@ class MenuElement(nn.Module):
         beta_init = torch.randn(1) * 0.5 - 2.0  # mean=-2.0, std=0.5
         self.beta_raw = nn.Parameter(beta_init)
         self.logits = nn.Parameter(torch.zeros(D))        # 混合重みのロジット
-        self.mus = nn.Parameter(torch.zeros(D, m))        # 初期分布の支持 μ_d^(k)
+        
+        # μの改善された初期化（μ=0病の解消）
+        mus_init = torch.zeros(D, m)
+        # 代表束近傍での初期化
+        mus_init[0] = torch.ones(m)  # 全1束
+        if D > 1:
+            mus_init[1] = torch.zeros(m)
+            mus_init[1][0] = 1.0  # 少数1束 (1,0,0,...,0)
+        if D > 2:
+            mus_init[2] = torch.zeros(m)
+            mus_init[2][1] = 1.0  # 少数1束 (0,1,0,...,0)
+        # 残りはランダム初期化
+        for d in range(3, D):
+            mus_init[d] = torch.rand(m) * 1.4 - 0.2  # U[-0.2, 1.2]
+        
+        self.mus = nn.Parameter(mus_init)
 
     @property
     def beta(self) -> torch.Tensor:
@@ -218,6 +233,9 @@ def utility_element(flow, v, elem: MenuElement, t_grid: torch.Tensor) -> torch.T
     integ = flow.eta_integral(t_grid).to(torch.float64)                           # ()
     log_w = torch.log_softmax(elem.logits.to(torch.float64), dim=0) - trQ * integ # (D,)
     
+    # 数値安定化: log_wをクリップして極端な値を防ぐ
+    log_w = torch.clamp(log_w, -50.0, 50.0)  # exp(-50) ≈ 1.9e-22, exp(50) ≈ 5.2e21
+    
     # log-sum-exp: M = max(log_w), u = exp(M) * Σ_d exp(log_w - M) * v_d
     M = log_w.max()
     u = torch.exp(M) * torch.sum(torch.exp(log_w - M) * vals)                     # Σ_d e^{log_w-M} v_d
@@ -340,6 +358,9 @@ def utilities_matrix_batched(flow, V: List, menu: List[MenuElement], t_grid: tor
             print(f"  [DEBUG] s_flat shape: {s_flat.shape}, unique bundles: {len(torch.unique(s_flat, dim=0))}", flush=True)
             print(f"  [DEBUG] Number of valuation atoms: {len(v.atoms)}", flush=True)
             print(f"  [DEBUG] vals range: [{vals.min().item():.4f}, {vals.max().item():.4f}]", flush=True)
+        
+        # 数値安定化: log_weightsをクリップ
+        log_weights = torch.clamp(log_weights, -50.0, 50.0)
         
         # log-sum-exp per menu element
         M = torch.max(log_weights, dim=1, keepdim=True)[0]  # (K_main, 1)

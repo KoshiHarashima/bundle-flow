@@ -2,7 +2,7 @@ m: 50
 D: 8
 iters: 60000
 batch: 1024
-lr: 5e-3
+lr: 5e-3  # 安定した学習率
 sigma_z: 0.05
 ode_steps: 25
 seed: 42

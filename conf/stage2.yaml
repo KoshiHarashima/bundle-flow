@@ -3,15 +3,15 @@ K: 512
 D: 4
 iters: 20000
 batch: 128
-lr: 3e-1
+lr: 5e-3
 ode_steps: 25
-lam_start: 1e-3
-lam_end: 2e-1
+lam_start: 0.5
+lam_end: 0.1
 flow_ckpt: "checkpoints/flow_stage1_final.pt"
 seed: 123
 device: "auto"
 cats_glob: ""       # 例: "cats_out/*.txt"
-a: 20               # 合成XORの原子数（※大きすぎない設定に）
+a: 32               # 合成XORの原子数（改善された設定）
 n_val: 5000
 warmup_iters: 500
 match_rate_threshold: 0.01
