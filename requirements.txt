@@ -1,6 +1,0 @@
-numpy
-matplotlib
-jupyterlab
-ipykernel
-black
-pytest
