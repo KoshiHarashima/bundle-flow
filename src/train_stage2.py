@@ -139,8 +139,19 @@ def make_dataset(args) -> List[XORValuation]:
 
 # ---------- 学習本体（Eq.(21)→(22) 最適化） ----------
 def train_stage2(args):
-    device = torch.device("cuda" if torch.cuda.is_available() and not args.cpu else "cpu")
-    print(f"[Stage2] Using device: {device}", flush=True)
+    # GPU最適化: Colab A100用設定
+    if torch.cuda.is_available() and not args.cpu:
+        device = torch.device("cuda")
+        # A100の最適化設定
+        torch.backends.cudnn.benchmark = True  # 最適化された畳み込みアルゴリズム
+        torch.backends.cudnn.deterministic = False  # 高速化のため非決定論的
+        # メモリ効率化
+        torch.cuda.empty_cache()
+        print(f"[Stage2] Using GPU: {torch.cuda.get_device_name(0)}", flush=True)
+        print(f"[Stage2] GPU Memory: {torch.cuda.get_device_properties(0).total_memory / 1e9:.1f} GB", flush=True)
+    else:
+        device = torch.device("cpu")
+        print(f"[Stage2] Using device: {device}", flush=True)
     seed_all(args.seed)
 
     # Stage 1 のフロー読込（φ 固定；Eq.(20)で使用） :contentReference[oaicite:6]{index=6}
@@ -271,9 +282,13 @@ def train_stage2(args):
             opt = optim.Adam(all_params, lr=args.lr)
             beta_unfrozen = True
             print(f"[Iteration {it}] Now optimizing {len(all_params)} parameters (μ/w/β)", flush=True)
-        # バッチをサンプル
+        # GPU最適化バッチ処理
         B = min(args.batch, len(train))
         batch = random.sample(train, B)
+        
+        # GPU メモリ効率化（定期的なクリーンアップ）
+        if it % 100 == 0 and torch.cuda.is_available():
+            torch.cuda.empty_cache()
 
         # λ（Eq.(23)）をスケジュール
         lam = lambda_schedule(it, args.iters, start=args.lam_start, end=args.lam_end)
