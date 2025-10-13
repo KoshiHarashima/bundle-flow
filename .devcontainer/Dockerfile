@@ -1,30 +1,33 @@
-FROM nvcr.io/nvidia/pytorch:23.04-py3
+# PyTorch + CUDA環境
+FROM pytorch/pytorch:2.1.0-cuda12.1-cudnn8-devel
 
-ENV TZ=Asia/Tokyo
-RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+# 環境変数の設定
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PYTHONUNBUFFERED=1
 
-ARG work_dir="/workspace"
+# 必要なシステムパッケージをインストール
+RUN apt-get update && apt-get install -y \
+    git \
+    curl \
+    wget \
+    vim \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
 
-# ENV PYTHON_VERSION 3.10.9
-# ENV HOME /root
-# ENV PYTHON_ROOT $HOME/local/python-$PYTHON_VERSION
-# ENV PATH $PYTHON_ROOT/bin:$PATH
-# ENV PYENV_ROOT $HOME/.pyenv
-
-#gitのインストール
-RUN apt-get update -y && apt-get install -y build-essential vim \
-    wget curl git zip gcc make openssl \
-    libssl-dev libbz2-dev libreadline-dev \
-    libsqlite3-dev python3-tk tk-dev python-tk \
-    libfreetype6-dev libffi-dev liblzma-dev
-
-# Install nodejs for JupyterLab extension
-RUN curl -sL https://deb.nodesource.com/setup_current.x | bash - && \
-    apt-get install -y --no-install-recommends nodejs && \
-    rm -rf /var/lib/apt/lists/*
-
-# ワークディレクトリを設定
+# 作業ディレクトリの設定
 WORKDIR /bundle-flow
 
-# uvをインストール
-RUN pip install uv
+# CUDAが利用可能かチェックするためのスクリプト
+RUN echo '#!/bin/bash\n\
+    echo "=== GPU Status ==="\n\
+    nvidia-smi\n\
+    echo ""\n\
+    echo "=== PyTorch GPU Status ==="\n\
+    python -c "import torch; print(f\"PyTorch version: {torch.__version__}\"); print(f\"CUDA available: {torch.cuda.is_available()}\"); print(f\"CUDA version: {torch.version.cuda}\"); print(f\"cuDNN version: {torch.backends.cudnn.version()}\"); print(f\"Number of GPUs: {torch.cuda.device_count()}\"); [print(f\"GPU {i}: {torch.cuda.get_device_name(i)}\") for i in range(torch.cuda.device_count())]"\n\
+    ' > /usr/local/bin/check-gpu && chmod +x /usr/local/bin/check-gpu
+
+# デフォルトのシェルをbashに設定
+SHELL ["/bin/bash", "-c"]
+
+# Pythonのパスを設定
+ENV PATH="/opt/conda/bin:${PATH}"

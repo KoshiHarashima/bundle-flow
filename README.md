@@ -1,39 +1,72 @@
-# bundle-flow
-I'm an exchange student at Northwestern University.  
+# BundleFlow
 
-This code was created for experiments in the field of economics, especially in multi-product auction theory.
+**Rectified Flow–based menus for combinatorial auctions**
 
----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-This work is based on the folloing paper;   
+## 🚀 Getting Started
 
-Wang, Tonghan, Yanchen Jiang, and David C. Parkes. 2025. “BundleFlow: Deep Menus for Combinatorial Auctions by Diffusion-Based Optimization.” arXiv [Cs.GT]. arXiv. http://arxiv.org/abs/2502.15283.
+### 🎯 Quick Demo (Colab)
+**→ [BundleFlow_Colab_Demo.ipynb](BundleFlow_Colab_Demo.ipynb)** - 新しいAPI構造のデモンストレーション
 
-<<<<<<< HEAD
-Dütting, Paul, Zhe Feng, H. Narasimhan, and D. Parkes. 2017. “Optimal Auctions through Deep Learning.” International Conference on Machine Learning 64 (June): 109–16.
+### 📖 Setup Guide
+**→ [COLAB_SETUP_GUIDE.md](COLAB_SETUP_GUIDE.md)** - 詳細なセットアップ手順
 
-Jang, Eric, Shixiang Gu, and Ben Poole. 2016. “Categorical Reparameterization with Gumbel-Softmax.” arXiv [Stat.ML]. arXiv. http://arxiv.org/abs/1611.01144.
+## 📖 Research Background
 
-=======
+BundleFlow is a novel approach to combinatorial auction design using Rectified Flow models. This implementation provides:
+
+- **Stage 1**: Flow initialization for bundle generation
+- **Stage 2**: Menu optimization for revenue maximization
+- **New API Structure**: Clear separation of concerns with `BundleFlow`, `MenuElement`, `Mechanism`
+- **Type Safety**: Complete type annotations and economic symbol documentation
+- **Numerical stability**: Log-sum-exp, softplus constraints, warmup scheduling
+- **GPU acceleration**: CUDA/MPS support with automatic optimization
+- **Reproducibility**: Deterministic algorithms and comprehensive environment checks
+
+## 📚 References
+
+- [MODEL.md](MODEL.md) - モデル記号と目的のドキュメント
+- [Rectified Flow for Economists](RECTIFIED_FLOW_FOR_ECONOMISTS.md)
+- [Gumbel-Softmax Solution](GUMBEL_SOFTMAX_SOLUTION.md)
+- [Technical Issues Analysis](TECHNICAL_ISSUES_ANALYSIS.md)
+- [Implementation Report](IMPLEMENTATION_REPORT.md)
+
+## 🛠️ Development
+
+### Quick Commands
+
+```bash
+make env        # 環境構築
+make test       # テスト実行
+make format     # コードフォーマット
+make lint       # リントチェック
+make reproduce  # 5分で再現（小規模）
+```
+
+### Project Structure
 
 ```
 bundle-flow/
-├── data/ 
-├── bf/ 
-│   ├── data.py
-│   ├── flow.py
-│   ├── menu.py
-│   ├── utils.py
-│   ├── valuation.py
-├── src/ 
-│   ├── train_stage1
-│   ├── train_stage2
-│── README.md
-├── tests/ #テスト用プログラム
-│   ├── test_online/
-│   ├── test_beacon/
-│   ├── test_fitbit/
-│   └── test_questionnaire/
-├── requirements.txt         
-└── .devcontainer         
+├─ bundleflow/          # コアパッケージ
+│  ├─ models/           # モデル（BundleFlow, MenuElement, Mechanism）
+│  ├─ valuation/        # 評価関数（XORValuation）
+│  ├─ train/            # 学習スクリプト（Stage1, Stage2）
+│  ├─ data.py           # データローダー
+│  └─ utils.py          # ユーティリティ
+├─ src/                 # エントリポイント（後方互換性）
+├─ conf/                # 設定ファイル
+├─ tools/               # 環境チェック
+├─ tests/               # テスト
+├─ checkpoints/         # チェックポイント
+├─ MODEL.md             # モデル記号と目的のドキュメント
+├─ BundleFlow_Colab_Demo.ipynb # Colabデモノートブック
+├─ COLAB_SETUP_GUIDE.md # 詳細セットアップガイド
+└─ pyproject.toml       # パッケージ設定
 ```
->>>>>>> 425f99f (update)
+
+## 📄 License
+
+MIT License - see [LICENSE](LICENSE) for details.
+
+## 📝 Citation
+
+If you use this software, please cite it as described in [CITATION.cff](CITATION.cff).

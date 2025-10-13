@@ -35,20 +35,8 @@ else
   fi
 fi
 
-# NVIDIAドライバとCUDAの確認
-if command -v nvidia-smi &> /dev/null; then
-  echo "NVIDIAドライバが見つかりました。情報を表示します:"
-  nvidia-smi
-else
-  echo "警告: NVIDIAドライバが見つかりません。GPUが利用できない可能性があります。"
-fi
-
-if command -v nvcc &> /dev/null; then
-  echo "CUDAが見つかりました。バージョン情報:"
-  nvcc --version
-else
-  echo "警告: CUDAが見つかりません。"
-fi
+# Apple Silicon MacではNVIDIA GPUは利用不可のため、CPU版PyTorchを使用
+echo "Apple Silicon Mac環境: CPU版PyTorchを使用します"
 
 # 実行権限を確保
 chmod +x .devcontainer/initialize.sh

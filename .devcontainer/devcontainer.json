@@ -1,32 +1,29 @@
 {
-	"name": "bundle-flow",
-	"dockerComposeFile": "docker-compose.yml",
-	"service": "dev",
-	"workspaceFolder": "/bundle-flow",
-	// 初期化時にユーザー名を尋ねるスクリプトを実行
-	"initializeCommand": "bash .devcontainer/initialize.sh",
+	"name": "BundleFlow GPU Development",
+	"dockerFile": "Dockerfile",
+	"runArgs": [
+		"--shm-size=8gb"
+	],
 	"customizations": {
 		"vscode": {
 			"extensions": [
 				"ms-python.python",
 				"ms-python.vscode-pylance",
 				"ms-toolsai.jupyter",
-				"ms-vscode-remote.remote-containers",
-				"nvidia.nsight-vscode-edition",
-				"ms-azuretools.vscode-docker"
+				"ms-toolsai.jupyter-keymap",
+				"ms-toolsai.jupyter-renderers"
 			],
 			"settings": {
-				"python.defaultInterpreterPath": "/root/.pyenv/shims/python",
+				"python.defaultInterpreterPath": "/opt/conda/bin/python",
+				"python.linting.enabled": true,
+				"python.linting.pylintEnabled": false,
 				"python.formatting.provider": "black",
-				"editor.formatOnSave": true,
-				"jupyter.jupyterServerType": "local"
+				"python.terminal.activateEnvironment": true,
+				"jupyter.kernels.filter": []
 			}
 		}
 	},
-	"forwardPorts": [
-		8888
-	],
-	"remoteUser": "root",
-	// オプショナル: コンテナ起動時に実行するコマンド
-	"postCreateCommand": "bash .devcontainer/setup_git.sh && pip install jupyterlab black && jupyter lab --ip=0.0.0.0 --allow-root --NotebookApp.token='' --NotebookApp.password=''"
+	"forwardPorts": [8888],
+	"postCreateCommand": "pip install -e . && pip install -r requirements.txt",
+	"remoteUser": "root"
 }

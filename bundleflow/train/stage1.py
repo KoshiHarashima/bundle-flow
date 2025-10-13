@@ -1,6 +1,8 @@
-# scripts/train_stage1.py
-# BundleFlow Stage 1: Flow Initialization
-# 参照: Eq.(13)-(17), 丸めと近傍ノイズ Eq.(14), ODE前進 Eq.(20)（プローブ用）.  :contentReference[oaicite:2]{index=2}
+# bundleflow/train/stage1.py
+"""
+BundleFlow Stage 1: Flow Initialization
+参照: Eq.(13)-(17), 丸めと近傍ノイズ Eq.(14), ODE前進 Eq.(20)（プローブ用）.
+"""
 
 import os, time, argparse, random
 import csv
@@ -27,7 +29,7 @@ def seed_all(seed: int):
 
 def init_alpha0_mog(m: int, D: int, device, mu_range=(-0.2, 1.2), sigma_val=0.5):
     """
-    初期分布 α0: Mixture-of-Gaussian (Eq.(13))  :contentReference[oaicite:3]{index=3}
+    初期分布 α0: Mixture-of-Gaussian (Eq.(13))
       s0 ~ Σ_d w_d N(μ_d, σ_d^2 I_m)
     ・μ_d ~ U[mu_range]^m, σ_d=sigma_val, w_d=1/D（固定: Stage 1はα0固定）
     """
@@ -74,7 +76,7 @@ def train_stage1(args):
             ])
         print(f"CSV logging to: {csv_path}")
 
-    # φ(t,·)=η(t)Q(s0)·s_t（Eq.(9)）を学習  :contentReference[oaicite:4]{index=4}
+    # φ(t,·)=η(t)Q(s0)·s_t（Eq.(9)）を学習
     flow = BundleFlow(
         m=args.m, 
         use_spectral_norm=args.use_spectral_norm,
@@ -85,7 +87,7 @@ def train_stage1(args):
         use_eta_layernorm=args.use_eta_layernorm,
         eta_integral_clip=args.eta_integral_clip
     ).to(device)
-    opt = optim.Adam(flow.parameters(), lr=args.lr, weight_decay=args.weight_decay)  # Setup: LR=5e-3  :contentReference[oaicite:5]{index=5}
+    opt = optim.Adam(flow.parameters(), lr=args.lr, weight_decay=args.weight_decay)  # Setup: LR=5e-3
     
     # Cosine annealing スケジューラ
     scheduler = None
@@ -94,7 +96,7 @@ def train_stage1(args):
         scheduler = get_cosine_schedule_with_warmup(opt, warmup_steps, args.iters, args.min_lr_ratio)
         print(f"Using cosine scheduler: warmup={warmup_steps}, min_lr_ratio={args.min_lr_ratio}")
 
-    # 初期分布 α0 を固定（MoG; Eq.(13)）  :contentReference[oaicite:6]{index=6}
+    # 初期分布 α0 を固定（MoG; Eq.(13)）
     mus, sigmas, weights = init_alpha0_mog(
         args.m, args.D, device, 
         mu_range=(args.mu_min, args.mu_max), 
@@ -110,7 +112,7 @@ def train_stage1(args):
             flow.Q.switch_to_full_mode()
         
         # Rectified Flow 損失（Eq.(15)-(17)）:
-        #  s_T ~ N( s , σ_z^2 I ) with s = I(s0≥0.5)（Eq.(14), Sec.3.2 の近傍化）  :contentReference[oaicite:7]{index=7}
+        #  s_T ~ N( s , σ_z^2 I ) with s = I(s0≥0.5)（Eq.(14), Sec.3.2 の近傍化）
         result = flow.rectified_flow_loss(
             B=args.batch, mus=mus, sigmas=sigmas, weights=weights, 
             sigma_z=args.sigma_z,
@@ -196,7 +198,7 @@ def train_stage1(args):
     if writer is not None:
         writer.close()
 
-    # （任意）被覆率プローブ: 小mで φ 前進 (Eq.(20))→丸め（Eq.(19のI(·)相当）で支配的束のカバレッジを見る  :contentReference[oaicite:8]{index=8}
+    # （任意）被覆率プローブ: 小mで φ 前進 (Eq.(20))→丸め（Eq.(19のI(·)相当）で支配的束のカバレッジを見る
     if args.probe > 0 and args.m <= 18:
         with torch.no_grad():
             s0 = flow.sample_mog(args.probe, mus, sigmas, weights)
@@ -246,12 +248,12 @@ def train_stage1_cli():
     ap = argparse.ArgumentParser()
     # 基本パラメータ
     ap.add_argument("--m", type=int, default=50)
-    ap.add_argument("--D", type=int, default=8)               # Setup既定の小さな支持サイズ  :contentReference[oaicite:9]{index=9}
-    ap.add_argument("--iters", type=int, default=60000)       # Fig.2: 60K iter のデモ  :contentReference[oaicite:10]{index=10}
+    ap.add_argument("--D", type=int, default=8)               # Setup既定の小さな支持サイズ
+    ap.add_argument("--iters", type=int, default=60000)       # Fig.2: 60K iter のデモ
     ap.add_argument("--batch", type=int, default=1024)
     
     # 学習率制御
-    ap.add_argument("--lr", type=float, default=5e-3)         # Setup  :contentReference[oaicite:11]{index=11}
+    ap.add_argument("--lr", type=float, default=5e-3)         # Setup
     ap.add_argument("--use_scheduler", action="store_true", help="Use cosine annealing scheduler")
     ap.add_argument("--warmup_ratio", type=float, default=0.05, help="Warmup ratio for scheduler")
     ap.add_argument("--min_lr_ratio", type=float, default=0.1, help="Min LR ratio for cosine decay")
