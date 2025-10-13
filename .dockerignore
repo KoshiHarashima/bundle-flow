@@ -7,9 +7,36 @@ __pycache__/
 *.egg-info/
 dist/
 build/
+develop-eggs/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+.installed.cfg
+*.egg
 
-# Jupyter
+# PyTorch models (large files)
+*.pt
+*.pth
+*.pkl
+*.pickle
+
+# Jupyter Notebook
 .ipynb_checkpoints/
+
+# Environment
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
 
 # Git
 .git/
@@ -18,24 +45,54 @@ build/
 # IDE
 .vscode/
 .idea/
+*.swp
+*.swo
+*~
 
-# Checkpoints and logs
-checkpoints/
-*.pt
-*.pth
+# Checkpoints and logs (large files)
+checkpoints/*.pt
+checkpoints/*.pth
+!checkpoints/README.md
 *.log
+logs/
+
+# Data files
 *.csv
+*.json
+*.h5
+*.hdf5
+
+# Results and outputs
+results/
+outputs/
+artifacts/
+tmp/
+temp/
+*.tmp
+*.temp
 
 # Images
 *.png
 *.jpg
 *.jpeg
-
-# Documentation
-*.md
-!.devcontainer/README.md
+*.gif
+*.bmp
+*.tiff
 
 # OS
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
 Thumbs.db
+
+# Documentation (keep essential docs)
+*.md
+!README.md
+!COMPREHENSIVE_GUIDE.md
+!LICENSE
+!CITATION.cff
+!.devcontainer/README.md
 

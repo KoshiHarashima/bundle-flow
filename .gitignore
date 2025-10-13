@@ -20,14 +20,14 @@ wheels/
 .installed.cfg
 *.egg
 
-# PyTorch
+# PyTorch models (large files - use Git LFS for important checkpoints)
 *.pt
 *.pth
 *.pkl
 *.pickle
 
 # Jupyter Notebook
-.ipynb_checkpoints
+.ipynb_checkpoints/
 
 # Environment
 .env
@@ -58,7 +58,7 @@ Thumbs.db
 *.log
 logs/
 
-# Checkpoints (large files)
+# Checkpoints (large files - use Git LFS for important checkpoints)
 checkpoints/*.pt
 checkpoints/*.pth
 !checkpoints/README.md
@@ -75,7 +75,41 @@ temp/
 *.h5
 *.hdf5
 
-# Results
+# Results and outputs
 results/
 outputs/
 artifacts/
+
+# Test coverage
+.coverage
+.pytest_cache/
+htmlcov/
+.tox/
+.nox/
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Pyre type checker
+.pyre/
+
+# Profiling
+*.prof
+
+# Local configuration
+local_config.yaml
+local_settings.py
+
+# Backup files
+*.bak
+*.backup
+*~
+
+# Large data files
+*.zip
+*.tar.gz
+*.tar.bz2
+*.rar
+*.7z
