@@ -1,0 +1,3 @@
+[console_scripts]
+bundleflow-stage1 = bundleflow.train.stage1:main
+bundleflow-stage2 = bundleflow.train.stage2:main
