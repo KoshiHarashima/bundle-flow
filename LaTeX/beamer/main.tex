@@ -1,0 +1,47 @@
+\PassOptionsToPackage{dvipdfmx,implicit=true}{hyperref} % ← beamerの既定を上書き
+\PassOptionsToPackage{dvipdfmx}{graphicx}
+\documentclass[dvipdfmx,professionalfonts]{beamer} % autodetect系は使わない
+
+% テーマ（好みで変更可）
+\usetheme{Madrid}
+\usecolortheme{default}
+
+% 共有前置き＆マクロ
+\input{../../shared/preamble_beamer.tex}
+\input{../../shared/macros.tex}
+
+% メタ情報
+\title{\papertitle}
+\author{\paperauthor}
+\institute{\paperaffil}
+\date{\paperdate}
+
+\begin{document}
+\begin{frame}
+  \titlepage
+\end{frame}
+
+% 目次（任意）
+\begin{frame}{Outline}
+  \tableofcontents
+\end{frame}
+
+% セクション見出しごとにアウトライン（任意）
+\AtBeginSection[]{
+  \begin{frame}{Outline}
+    \tableofcontents[currentsection]
+  \end{frame}
+}
+
+
+%本文
+
+
+% 参考文献（スライド1枚）
+\begin{frame}[allowframebreaks]{References}
+  \printbibliography[heading=none]
+  \nocite{*}
+\end{frame}
+
+\end{document}
+

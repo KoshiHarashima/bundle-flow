@@ -1,0 +1,92 @@
+\documentclass[a4paper]{article}
+
+\input{../../shared/preamble_article.tex}
+\input{../../shared/macros.tex}
+
+\renewcommand*{\bibfont}{\small}
+\setlength\bibitemsep{0.1\baselineskip}
+
+\usepackage{enumitem}
+\setlist{nosep}
+
+\title{Bundle-Flow}
+\author{\paperauthor \\ \paperaffil}
+\date{October 9, 2025}
+
+\begin{document}
+
+\maketitle
+
+\section*{Formulation of Combinational Auction}
+\textbf{Mechanism}
+\begin{itemize}
+    \item まず商品集合Mとバンドルの集合Sを以下のように定義する(この時、1商品もバンドルとして扱う).：
+    \begin{equation*}
+        M=\{1,\dots,m\},\qquad \mathcal{S}:=2^{M}.
+    \end{equation*}
+    \item $v$ は各バンドルの価値関数で，そのタイプ空間 $V$ 上に分布 $F$ が与えられます．
+    \begin{equation*}
+        v:\ \mathcal{S}\to\mathbb{R}_{\ge 0},\qquad v\sim F \ \text{on}\ V.
+    \end{equation*}
+    \item Revelation Principleより、分析を直接メカニズム$M(g, p)$に制限しても一般性を失わない(Mas-Colell et al.(1995))。$X$ はバンドル上のくじ（確率配分）の集合で，$g$ が配分ルール，$p$ が支払いルールである。
+    \begin{equation*}
+        X:=\Delta(\mathcal{S}),\qquad g:V\to X,\qquad p:V\to\mathbb{R}_{\ge 0}.
+    \end{equation*}
+    \item 効用は準線形かつリスク中立で，申告 $b$ に対し $u(v;b)$ を得る．
+    \begin{equation*}
+    u(v;b)=v\bigl(g(b)\bigr)-p(b).
+    \end{equation*}
+    \item DSICとは以下の式が成り立つことである。
+    \begin{equation*}
+    \forall v,b\in V:\quad u(v;v)\ \ge\ u(v;b).
+    \end{equation*}  
+\end{itemize}
+% MyersonとRochetの話とは接続できないのか。
+\textbf{Menu representation(3.1)}
+\begin{itemize}
+    \item メニュー $B$ は $K$ 個の要素からなり，各要素はbundleの確率分布と価格の組である。
+    \begin{equation*}
+        B=\bigl(B^{(1)},\dots,B^{(K)}\bigr),\qquad B^{(k)}=\bigl(\alpha^{(k)},\beta^{(k)}\bigr).
+    \end{equation*}
+    \item $\alpha^{(k)}$ はバンドル上の確率分布，$\beta^{(k)}$ は要素 $k$ の価格である
+    \begin{equation*}
+        \alpha^{(k)}:\ \mathcal{S}\to[0,1],\qquad \sum_{S\subseteq M}\alpha^{(k)}(S)=1,\qquad \beta^{(k)}\in\mathbb{R}_{\ge 0}.
+    \end{equation*}
+    \item 申告 $b$ に対し，期待価値から価格を引いた効用が最大となるメニュー要素を選ぶ．
+    \begin{equation*}
+        k^\ast(b)\ \in\ \argmax_{k=1,\dots,K}\ \sum_{S\subseteq M}\alpha^{(k)}(S)\,b(S)\ -\ \beta^{(k)}.
+    \end{equation*}
+\end{itemize}
+\textbf{Flow-based Bundle Generation}
+\begin{itemize}
+    \item 各メニュー要素 $k$ ごとに，連続表現空間でバンドルの潜在ベクトル $\bm{s}^{(k)}_t$ をベクトル場 $\bm{\phi}^{(k)}$ に沿って流します．
+    \begin{equation*}
+        d\,\bm{s}^{(k)}_t\ =\ \bm{\phi}^{(k)}\!\bigl(t,\bm{s}^{(k)}_t\bigr),\qquad t\in[0,1],\ \ \bm{s}^{(k)}_t\in\mathbb{R}^m.
+    \end{equation*}
+    \item 初期分布 $\alpha_0^{(k)}$ をフロー写像 $\Phi^{(k)}_{T}$ で押し出し（pushforward），threshold rounding map $\mathcal{R}:\mathbb{R}^m\to\mathcal{S}$(買う/買わない)でdiscrete bundlesへ写して得た終端のbundle分布が $\alpha_T^{(k)}$ です
+    \begin{equation*}
+        \alpha_T^{(k)}\ =\ \mathcal{R}_{\sharp}\Bigl(\,\Phi^{(k)}_{T}\,\Bigr)_{\sharp}\,\alpha_0^{(k)}.
+    \end{equation*}
+    \item $\rho^{(k)}_t$ は連続空間での密度で，その時間発展はLiouville方程式に従い，学習に用いることができます
+    \begin{equation*}
+    \partial_t\rho^{(k)}_t\ +\ \nabla\!\cdot\!\bigl(\rho^{(k)}_t\,\bm{\phi}^{(k)}\bigr)\ =\ 0.
+    \end{equation*}
+\end{itemize}
+\textbf{Two-step learning}
+\[
+\begin{aligned}
+\text{Stage 1:}\quad
+&\bm{\phi}^{(k)}\text{ を学習し、}
+\{0,1\}^m\text{ 近傍の }\mathcal{S}\ (\text{feasible bundles})
+\text{ が広く到達可能となるようにする．}\\
+\text{Stage 2:}\quad
+&\bm{\phi}^{(k)}\text{ を固定し、}
+\bigl(\alpha_0^{(k)},\beta^{(k)}\bigr)\text{ を最適化して期待収益を最大化する．}
+\end{aligned}
+\]
+
+
+\nocite{*}
+\printbibliography
+
+\end{document}

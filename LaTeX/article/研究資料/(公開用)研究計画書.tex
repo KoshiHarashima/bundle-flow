@@ -1,0 +1,58 @@
+\documentclass[dvipdfmx,autodetect-engine]{article}
+
+\input{../../shared/preamble_article.tex}
+\input{../../shared/macros.tex}
+
+\newcommand{\Pow}{\mathcal{P}}
+\newcommand{\B}{\mathcal{B}}
+\newcommand{\conv}{\mathcal{conv}}
+\newcommand{\inp}{\mathcal{inp}}
+\newcommand{\Chi}{\mathcal{Chi}}
+
+
+\title{研究計画書}
+\author{\paperauthor \\ \paperaffil}
+\date{\paperdate}
+
+\begin{document}
+
+\maketitle
+
+\section*{概要}
+入れる用語：メカニズムデザイン・オークション・具体例・社会制度・AI
+これまで、経済学の文脈では、1商品のオークションについて、理論的な解析が行われ、Myerson(1981)らの貢献によって、解明が進んだ。しかし、複数の商品のオークションについての理論的な解明はまだ行われいない。この問題は,多次元タイプのスクリーニングというより大きな問題に直結している。
+
+\section*{背景と動機}
+複数の商品のオークションについての定式化は様々行われているが、最も有力なのが1次元などの単純化を施さず、多次元のまま問題を解くという方法だ。この方法は、計算を煩雑にさせるが、問題に真摯に答えたものになる。\\
+この計算の煩雑さに対して、近年の研究でAIのパラメータの訓練を導入して解決する方法が提案されている。これは、現実では実験することができない理論的な現象に関して、AIを通した実験を行い、理論的な解明に光を指すものとして現在注目を集めている。\\
+このAIによるAuctionの自動化は、現実世界への直接的な応用だけでなく、複数商品のオークションの理論的な解明に光を当てるものである。  
+そしてこの理論的な解明によって、実際にオークションを現実社会に実装する際の知見を提供することができる。
+ 
+\section*{研究目的}
+単に「理論構築」ではなく、AI実験から理論への橋渡しを人間が行うと主に、そこから、人間的意思決定の理解や、経済制度設計への応用を行う。
+
+\section*{方法}
+流れ自体は前述と同じ：
+① 実験的観察 → ② 理論モデル化 → ③ 解析 → ④ 公開。
+ただし、非専門家にも理解できる程度に簡素化して説明する。
+
+\section*{成果と意義}
+① 学術的貢献（理論の拡張）
+② 社会的波及（人間行動理解・政策設計）
+③ 公開資源（データ・コード・論文）の提供
+の3軸で整理する。
+
+\section*{実施計画}
+
+\section*{予算計画}
+私は、HUMAI奨学金の支援を受けている。
+
+\section*{成果公開・発信}
+実験のために、https://github.com/KoshiHarashima/bundle-flowにBundleFlowと呼ばれる論文の再現実装を行ったRepositoryがある。また、今後は、VVCAとAffine-Maximizer、Bundle RochetNetの作成を行い、より直感的な感覚を鍛えるつもりだ。また、論文はゼミでの発表が終わったのち、Github上で公開するつもりだ。
+
+\section*{参考文献}
+
+
+\nocite{*}
+\printbibliography
+\end{document}

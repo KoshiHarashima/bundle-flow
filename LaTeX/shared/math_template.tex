@@ -1,0 +1,254 @@
+\documentclass[a4paper]{article}
+% Set the layout size in the \documentclass option
+
+% A package to match the output size to the layout size
+\usepackage{bxpapersize}
+
+% A package for margin adjustment
+\usepackage[top=35truemm,bottom=35truemm,left=30truemm,right=30truemm]{geometry}
+
+% Packages for "\bm", "\coloneqq", "\because", and "\therefore" commands
+\usepackage{bm, mathtools, amssymb}
+
+% Packages for coloring texts and math
+\usepackage{xcolor, soul}
+
+% A Package for Tikz
+\usepackage{tikz}
+% A Tikz library for curly braces
+\usetikzlibrary{decorations.pathreplacing}
+
+% A package for drawing snowmen
+\usepackage{scsnowman}
+
+\title{Math Symbols in \LaTeX\ for Microeconomics I}
+\author{Kento KITAJIMA}
+\date{June 25th. 2024}
+
+
+\begin{document}
+
+\maketitle
+
+\section*{Update}
+\begin{itemize}
+    \item June 25th. Code examples for Edgeworth box diagram using Tikz are added. 
+    \item April 30th. $\trianglerighteq$ and $\triangleright$ are added in \textit{Binary relation}, Symbols in math mode.
+    \item April 18th. I added the subsection of \textit{Binary operators}. Also, I corrected mistakes in the notation of mapping and set differences. 
+\end{itemize}
+
+\section*{Comments}
+\begin{itemize}
+    \item \LaTeX\ is a software designed to produce (mathematical) documents beautifully.
+    \item I omit explanations for basic terminology and commands in \LaTeX\ due to time constraints. If you are unsure about the following matters, I recommend reading some \LaTeX\ beginner's guides you can find online:
+    \begin{itemize}
+        \item The meaning of \textit{preamble} and \textit{environment}
+        \item The working of Space key and Enter key in \LaTeX\ codes
+        \item How to use new packages
+    \end{itemize}
+    \item I also distribute it in the form of a text file so you can revise and add the contents freely. Your own \textit{cheatsheet} will make your work efficient.
+    \item In the main section, I aim to cover most symbols you will use in your answer. Therefore, I did not include relatively rare Greek letters, matrix notations, etc. 
+    \item Even if you master the symbols in the main section, it may be difficult to write your answer beautifully without knowing \textit{math environments}, including \textit{equation}, \textit{align}, \textit{cases}, \textit{gather}, \textit{split}, etc. To be honest, I cannot distinguish them accurately from memory for now. It will be important to check them each time they are needed.
+\end{itemize}
+
+\section*{Symbols in math mode}
+\noindent \begin{tabular}{|c|l|} \hline
+    \multicolumn{2}{|l|}{\textit{Basic Symbols}} \\ \hline
+    $+, -, \times, \div$ & \verb|$+, -, \times, \div$|\\
+    $\cdot$ & \verb|$\cdot$|\\
+    $x^a, x/a, \sqrt{x}, \sqrt[n]{x}$ & \verb|$x^a, x/a, \sqrt{x}, \sqrt[n]{x}$|\\
+    $x'\!, x^*\!, \bar{x}, \hat{x}, \tilde{x}, \dot{x}$ & \verb|$x'\!, x^*\!, \bar{x}, \hat{x}, \tilde{x}, \dot{x}$|\\
+    $(x), \{x\}, |x|, \|x\|, [x], \langle x \rangle$ & \verb+$(x), \{x\}, |x|, \|x\|, [x], \langle x \rangle$+\\
+    $\bm{x}, \mathbf{x}$ & \verb|$\bm{x}, \mathbf{x}|\\
+    $\frac{a}{b}, \displaystyle \frac{a}{b}$ & \verb|$\frac{a}{b}, \displaystyle \frac{a}{b}$|\\ \hline
+    \multicolumn{2}{|l|}{\textit{Operators}} \\ \hline
+    $\min, \max, \sup, \inf$ & \verb|$\min, \max, \sup, \inf$|\\
+    $\lim, \log, \exp, \arg$ & \verb|$\lim, \log, \exp, \arg$|\\
+    $\min_{x \in X} f(x)$ & \verb|$\min_{x \in X} f(x)$|\\
+    $\lim_{x \to \infty} f(x)$ & \verb|$\lim_{x \to \infty} f(x)$|\\
+    \hl{$f \colon X \to Y$}\footnotemark, $f \circ g$ & \verb|$f \colon X \to Y, f \circ g$|\\
+    $\sum, \prod, \int, \partial, \nabla$ & \verb|$\sum, \prod, \int, \partial, \nabla$|\\ \hline
+    \multicolumn{2}{|l|}{\textit{Logic}} \\ \hline
+    $\forall, \exists, \land, \lor, \lnot$ & \verb|$\forall, \exists, \land, \lor, \lnot$|\\
+    $\Rightarrow, \Leftarrow, \Leftrightarrow$ & \verb|$\Rightarrow, \Leftarrow, \Leftrightarrow$|\\
+    $\implies, \impliedby, \iff$ & \verb|$\implies, \impliedby, \iff$|\\
+    $\therefore \, \because$ & \verb|$\therefore \, \because$|\\ \hline
+    \multicolumn{2}{|l|}{\textit{Binary relation}} \\ \hline
+    $=, \neq, \coloneqq, \equiv$ & \verb|$=, \neq, \coloneqq, \equiv$|\\
+    $\gg, \geq, >, \ll, \leq, <$ & \verb|$\gg, \geq, >, \ll, \leq, <, $|\\
+    $\succeq, \succ, \preceq, \prec, \sim$ & \verb|$\succeq, \succ, \preceq, \prec, \sim$|\\
+    $\trianglerighteq, \triangleright$ & \verb|$\trianglerighteq, \triangleright$|\\ \hline
+    \multicolumn{2}{|l|}{\textit{Set}} \\ \hline
+    $\cup, \cap, \bigcup, \bigcap$ & \verb|$\cup, \cap, \bigcup, \bigcap$|\\
+    $\in, \notin, \ni$ & \verb|$\in, \notin, \ni$|\\
+    $\subset, \supset, \subseteq, \subsetneq$ & \verb|$\subset, \supset, \subseteq, \subsetneq$|\\
+    \hl{$A \setminus B$}\footref{1} & \verb|$A \setminus B$|\\ 
+    $\emptyset$ & \verb|$\emptyset$|\\ \hline
+    \multicolumn{2}{|l|}{\textit{Greek alphabet}} \\ \hline
+    $\alpha, \beta, \gamma, \Gamma$ & \verb|$\alpha, \beta, \gamma, \Gamma$|\\
+    $\delta, \Delta, \theta, \Theta$ & \verb|$\delta, \Delta, \theta, \Theta$|\\
+    $\epsilon, \varepsilon$ & \verb|$\epsilon, \varepsilon$|\\
+    $\lambda, \Lambda, \mu, \nu, \pi, \rho$ & \verb|$\lambda, \Lambda, \mu, \nu, \pi, \rho$|\\
+    $\sigma, \Sigma, \psi, \omega, \Omega$ & \verb|$\sigma, \Sigma, \psi, \omega, \Omega$|\\ \hline
+    \multicolumn{2}{|l|}{\textit{Miscellaneous}} \\ \hline
+    $\mathbb{N}, \mathbb{Z}, \mathbb{Q}, \mathbb{R}$ & \verb|$\mathbb{N}, \mathbb{Z}, \mathbb{Q}, \mathbb{R}$|\\
+    $\mathcal{L}, \mathcal{E}$ & \verb|$\mathcal{L}, \mathcal{E}$|\\
+    $[\!], [], [\,], [\:], [\quad], [\qquad]$ & \verb|$[\!], [], [\,], [\:], [\quad], [\qquad]$|\\
+    $\dots, \cdots$ & \verb|$\dots, \cdots$|\\ \hline
+\end{tabular}\\
+\footnotetext{Although \textbackslash backslash and \textbackslash setminus (: and \textbackslash colon) output the same symbol, they work as a unary operator and a binary operator, respectively. You should use \textbackslash colon when denoting a mapping and \textbackslash setminus when denoting a set difference. \label{1}}
+\newpage
+
+\section*{Miscellaneous}
+\subsection*{\scsnowman Size of Brackets}
+If you use the \textbackslash left command and \textbackslash right command with brackets including parentheses$()$, curly braces$\{\}$, square brackets$[]$, angle brackets$\langle \rangle$, vertical bars$||$, etc., their sizes are automatically adjusted for their contents. For example,
+$$ ( \frac{a}{b} ) = \left( \frac{a}{b} \right) $$
+: \verb+$$ ( \frac{a}{b} ) = \left( \frac{a}{b} \right) $$+\\
+
+If they miss the other side but you want to adjust their size, you can use \verb|$\left.$| or  \verb|$\right.$|. For example,
+$$\left.\frac{df}{dx}\right|_{x=1}$$
+: \verb+$$\left.\frac{df}{dx}\right|_{x=1}$$+\\
+
+You can also use \verb|$\middle$| as in the case below:
+$$ \left\{ (x_1, \dots, x_N) \in \mathbb{R}^{K \times N} \setminus \{ \mathbf{0} \} \; \middle| \; \sum_{n=1}^N x_n \leq \sum_{n=1}^N \omega_n \right\} $$
+: \verb+$$ \left\{ (x_1, \dots, x_N) \in \mathbb{R}^{K \times N} \setminus \{ \mathbf{0} \}+ \\
+\verb+ \; \middle| \; \sum_{n=1}^N x_n \leq \sum_{n=1}^N \omega_n \right\} $$+
+
+\subsection*{\scsnowman[hat] Binary operators}
+\LaTeX\ adds spaces around \textit{binary operators}, including $+$, $-$, $\pm$, $\times$, $\div$, $*$, $\cdot$, $\cap$, $\cup$, and $\setminus$, if \textbf{\LaTeX\ thinks ``It is used as a binary operator here.''} See the examples below and master how to express unary operators and binary operators in \LaTeX.
+
+\vspace{0.5\baselineskip}
+
+\noindent \begin{tabular}{|c|l|c|l|} \hline
+    \multicolumn{4}{|l|}{\textit{When \LaTeX\ thinks $\dots$}} \\ \hline
+    \multicolumn{2}{|l|}{\textit{Unary operator}} & \multicolumn{2}{|l|}{\textit{Binary operator}} \\ \hline
+    3$\cdot$5 & \verb|3$\cdot$5| & \hl{$3\cdot5$} & \verb|$3\cdot5$| \\
+    3$\times$5 & \verb|3$\times$5| & \hl{$3\times5$} & \verb|$3\times5$| \\
+    \hl{$-x$} & \verb|$-x$| & ${}-x$ & \verb|${}-x$| \\
+    \hl{$|{-x}|$} & \verb+$|{-x}|$+ & $|-x|$ & \verb+$|-x|$+\\ \hline
+\end{tabular}
+
+\vspace{0.5\baselineskip}
+
+The proper notations are highlighted ones. Note that natural notations output improper appearances when you use absolute values with minus signs.\\
+
+\subsection*{\scsnowman[hat=true,muffler=red] Tikz (Added on June 24th.)}
+Tikz is a package for drawing graphs in TeX. Note that the compilation of codes drawing pictures using Tikz may not work depending on the compiler. (For example, ``pdfLaTeX'', ``XeLaTeX'', and ``LuaLaTeX'' are OK, but ``LaTeX'' does not work well on Overleaf.) If you want to get some general idea about Tikz, please refer to an unofficial manual (https://tikz.dev/). In particular, if you have time, reading the ``Tutorial: A Picture for Karl’s Students'' page (https://tikz.dev/tutorial) will help you master how to draw mathematical graphs in Tikz. However, if you just want to draw Edgeworth box diagrams that you will need on PS4, you can read my code examples and modify them accordingly. The code below outputs Figure~\ref{fig:fig1}. (I may be decorating the figure too much for an explanation.)
+
+\newpage
+
+\begin{verbatim}
+
+% You need to write "\usepackage{tikz}" in preamble.
+
+% If you want to use curly braces {} in figures, 
+% "\usetikzlibrary{decorations.pathreplacing}" is also needed in preamble.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[samples = 300]
+    % Arrows
+    \draw[-latex, thin] (0,0) -- (0, 6.2);
+    \draw[-latex, thin] (0,0) -- (10.3, 0);
+    \draw[-latex, thin] (10,6) -- (10, -0.2);
+    \draw[-latex, thin] (10,6) -- (-0.3, 6);
+
+    % Name of Axes
+    \draw (9.6, 0) node[below]{\large $x_1$};
+    \draw (0, 5.6) node[left]{\large $x_2$};
+
+    % Origins
+    \draw (0, 0) node[below left]{\large $O_{\textcolor{red!80!black}{A}}$};
+    \draw (10, 6) node[above right]{\large $O_{\textcolor{blue!80!black}{B}}$};
+
+    % Dashed lines for the initial endowment and the equilibrium point
+    \draw[gray, dashed] (5,0) -- (5,3) node[pos=0, below, black]{$5$};
+    \draw[gray, dashed] (0,3) -- (5,3) node[pos=0, left, black]{$3$};
+    \draw[gray, dashed] (7,0) -- (7,1) node[pos=0, below, black]{$7$};
+    \draw[gray, dashed] (0,1) -- (7,1) node[pos=0, left, black]{$1$};
+
+    % Budget Constraint line and areas
+    \draw[gray, very thick, dashed] (2, 6) -- (8, 0);
+    \fill[red!80!black, opacity=0.1] (0, 0) -- (0, 6) -- (2, 6) -- (8, 0) -- cycle;
+    \fill[blue!80!black, opacity=0.1] (10, 6) -- (10, 0) -- (8, 0) -- (2, 6) -- cycle;
+    \draw (3,5) node[fill = white, draw = black, above right]{\large BC};
+
+    % Indifference Curve for A
+    \draw[red!80!black, thick] (5, 6) -- (5, 3) -- (10, 3);
+    \draw[red!80!black, thick] (7, 6) -- (7, 4) -- (10, 4);
+    \draw (5,1) node[fill = white]{\large $\textrm{IC}_{\textcolor{blue!80!black}{B}}$};
+    
+    % Indifference Curve for B
+    \draw[blue!80!black, thick, domain=0:5.75] plot(\x, {pow(\x-6,-1)+4});
+    \draw[blue!80!black, thick, domain=0:11/3] plot(\x, {pow(\x-4,-1)+3});
+    \draw (8,2.5) node[fill = white]{\large $\textrm{IC}_{\textcolor{red!80!black}{A}}$};
+
+    % Initial Endowment and Equilibrium point
+    \fill (7,1) circle[radius = 0.1] node[above right, black]{\large $\omega$};
+    \fill[orange] (5,3) circle[radius = 0.1] node[above right, black]{\large $x^*$};
+
+    % Curly braces
+    \draw[decorate,decoration={brace,amplitude=5pt,mirror,raise=3ex}]
+  (5,0) -- (7,0) node[midway,yshift=-2.5em]{$A$'s Sales volume of $x_1$};
+    \draw[align = center, decorate,decoration={brace,amplitude=5pt,raise=3ex}]
+  (0,1) -- (0,3) node[midway,xshift=-5em]{$A$'s Purchase\\ volume of $x_2$};
+
+\end{tikzpicture}
+\caption{An example of an Edgeworth box}\label{fig:fig1}
+\end{figure}
+\end{verbatim}
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[samples = 300]
+    % Arrows
+    \draw[-latex, thin] (0,0) -- (0, 6.2);
+    \draw[-latex, thin] (0,0) -- (10.3, 0);
+    \draw[-latex, thin] (10,6) -- (10, -0.2);
+    \draw[-latex, thin] (10,6) -- (-0.3, 6);
+
+    % Name of Axes
+    \draw (9.6, 0) node[below]{\large $x_1$};
+    \draw (0, 5.6) node[left]{\large $x_2$};
+
+    % Origins
+    \draw (0, 0) node[below left]{\large $O_{\textcolor{red!80!black}{A}}$};
+    \draw (10, 6) node[above right]{\large $O_{\textcolor{blue!80!black}{B}}$};
+
+    % Dashed lines for the initial endowment and the equilibrium point
+    \draw[gray, dashed] (5,0) -- (5,3) node[pos=0, below, black]{$5$};
+    \draw[gray, dashed] (0,3) -- (5,3) node[pos=0, left, black]{$3$};
+    \draw[gray, dashed] (7,0) -- (7,1) node[pos=0, below, black]{$7$};
+    \draw[gray, dashed] (0,1) -- (7,1) node[pos=0, left, black]{$1$};
+
+    % Budget Constraint line and areas
+    \draw[gray, very thick, dashed] (2, 6) -- (8, 0);
+    \fill[red!80!black, opacity=0.1] (0, 0) -- (0, 6) -- (2, 6) -- (8, 0) -- cycle;
+    \fill[blue!80!black, opacity=0.1] (10, 6) -- (10, 0) -- (8, 0) -- (2, 6) -- cycle;
+    \draw (3,5) node[fill = white, draw = black, above right]{\large BC};
+
+    % Indifference Curve for A
+    \draw[red!80!black, thick] (5, 6) -- (5, 3) -- (10, 3);
+    \draw[red!80!black, thick] (7, 6) -- (7, 4) -- (10, 4);
+    \draw (5,1) node[fill = white]{\large $\textrm{IC}_{\textcolor{blue!80!black}{B}}$};
+    
+    % Indifference Curve for B
+    \draw[blue!80!black, thick, domain=0:5.75] plot(\x, {pow(\x-6,-1)+4});
+    \draw[blue!80!black, thick, domain=0:11/3] plot(\x, {pow(\x-4,-1)+3});
+    \draw (8,2.5) node[fill = white]{\large $\textrm{IC}_{\textcolor{red!80!black}{A}}$};
+
+    % Initial Endowment and Equilibrium point
+    \fill (7,1) circle[radius = 0.1] node[above right, black]{\large $\omega$};
+    \fill[orange] (5,3) circle[radius = 0.1] node[above right, black]{\large $x^*$};
+
+    % Curly braces
+    \draw[decorate,decoration={brace,amplitude=5pt,mirror,raise=3ex}]
+  (5,0) -- (7,0) node[midway,yshift=-2.5em]{$A$'s Sales volume of $x_1$};
+    \draw[align = center, decorate,decoration={brace,amplitude=5pt,raise=3ex}]
+  (0,1) -- (0,3) node[midway,xshift=-5em]{$A$'s Purchase\\ volume of $x_2$};
+
+\end{tikzpicture}
+\caption{An example of an Edgeworth box}\label{fig:fig1}
+\end{figure}
+
+\end{document}

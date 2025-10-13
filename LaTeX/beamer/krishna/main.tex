@@ -1,0 +1,1088 @@
+\documentclass[dvipdfmx,autodetect-engine]{beamer}
+
+% 好みのテーマ（必要なら後で変更）
+\usetheme{Madrid}
+\usecolortheme{default}
+
+% 共通前置き＆マクロ
+\input{../../shared/preamble_beamer.tex}
+\input{../../shared/macros.tex}
+
+\title{\papertitle}
+\author{\paperauthor}
+\institute{\paperaffil}
+\date{\paperdate}
+
+\begin{document}
+
+\AtBeginSection[]{
+  \begin{frame}{目次（現在のセクション）}
+    % currentsection オプションで，今のセクションだけを強調
+    \tableofcontents[
+      currentsection,        % 今のセクションを強調
+      hideothersubsections   % ほかのセクションのサブセクションは隠す
+    ]
+  \end{frame}
+}
+%% Slide 1: タイトル
+\begin{frame}
+  \titlepage
+\end{frame}
+
+\section{導入}
+%% Slide 2: オークションとメカニズムの概要
+\begin{frame}{本日のアジェンダ}
+  \begin{enumerate}
+    \item 問題設定 \hfill{\footnotesize}
+      \begin{itemize}
+        \item 直接メカニズムの定義 
+        \item Revelation Principle
+      \end{itemize}
+    \item IC の含意 \hfill{\footnotesize}
+      \begin{itemize}
+        \item 接線と\alert{凸関数}性 (式5.5) 
+        \item 導関数と\alert{非減少性} (式5.6) 
+        \item 積分表示と\alert{ペイオフ等価性} (式5.7) 
+      \end{itemize}
+    \item 収入等価性\hfill{\footnotesize}
+      \begin{itemize}
+        \item Proposition 5.2 (式5.8)
+        \item Payoff Equivalence の一般化
+      \end{itemize}
+  \end{enumerate}
+\end{frame}
+
+\begin{frame}{5章の概要}
+  \begin{itemize}
+    \item 売り手は価値の不確実な買い手複数に対し，最適な方式でオブジェクトを配分したい．
+    \item オークション形式（入札・配分・支払いルール）以外に，価格ポストや交渉など多様なメカニズムが存在．
+    \item 本章では，任意のメカニズムを抽象化し，配分（Allocation）と支払い（Payment）を定式化．
+  \end{itemize}
+\end{frame}
+
+%=== Preamble に追加 ===
+% ブロックを角丸＋薄い背景に
+\setbeamertemplate{blocks}[rounded][shadow=false]
+\setbeamercolor{block title}{fg=white,bg=structure.fg!80!black}
+\setbeamercolor{block body}{bg=structure.fg!10!white}
+% 列間を詰める
+\setlength{\columnsep}{1em}
+% itemize の行間を調整
+\addtobeamertemplate{itemize/enumerate body begin}{\setlength{\itemsep}{0.5ex}}{}
+%======================
+
+% Slide 2: 問題設定と基本定義
+\begin{frame}{問題設定と基本定義}
+  \begin{columns}[T,onlytextwidth]
+    \column{0.48\textwidth}
+      \begin{block}{参加者}
+        \begin{itemize}
+          \item 売り手：非分割オブジェクト1つ（評価額=0）
+          \item 買い手 $i\in\mathcal{N}=\{1,\dots,N\}$：リスク中立
+          \item 各買い手の真の評価額：$x_i$
+        \end{itemize}
+      \end{block}
+
+    \column{0.48\textwidth}
+      \begin{block}{評価額の分布}
+        \begin{itemize}
+          \item $x_i\in[0,\omega_i]$ CDF: $F_i$, PDF: $f_i$
+          \item 独立性：$f(\bm x)=\prod_{j=1}^N f_j(x_j)$
+          \item 他者評価の集合：$\bm x_{-i}$, \\
+                $f_{-i}(\bm x_{-i})=\prod_{j\neq i}f_j(x_j)$
+        \end{itemize}
+      \end{block}
+  \end{columns}
+
+  \vspace{1ex}
+  \begin{block}{今後の課題}
+    配分ルール $\pi$ と支払いルール $\mu$ を定式化し，\\
+    最善の配分方法について考える。
+  \end{block}
+\end{frame}
+
+% Slide: リスク中立性の厳密定義
+\begin{frame}{補足：リスク中立}
+  \tiny\setlength{\parskip}{0pt}\setlength{\topsep}{0pt}
+  \vspace{-1ex}
+  \begin{block}{定義（リスク中立）}
+    エージェントの効用関数 \(u:\mathbb{R}\to\mathbb{R}\) が，任意のランダム変数 \(W\)（富や支払額）について
+    \[
+      \mathbb{E}\bigl[u(W)\bigr]
+      \;=\;
+      u\!\bigl(\mathbb{E}[W]\bigr)
+    \]
+    を満たすとき，そのエージェントは「リスク中立的」である．
+  \end{block}
+
+  \vspace{1ex}
+  \begin{block}{同値な条件}
+    上記の定義は，次のいずれとも同値である：
+    \begin{enumerate}
+      \item \(u\) はアフィン関数：  
+        \[
+          u(w)=a\,w + b,\quad a>0,\;b\in\mathbb{R}.
+        \]
+      \item 任意の確率分布 \(F_W\) に対して
+        \(\displaystyle\int u(w)\,dF_W(w)
+        =u\!\bigl(\int w\,dF_W(w)\bigr)\) が成り立つこと．
+    \end{enumerate}
+  \end{block}
+
+  \vspace{1ex}
+  \begin{block}{期待利得の表現}
+    リスク中立のもとでは効用＝金額とみなせるため，
+    買い手 \(i\) の期待利得は
+    \[
+      \mathbb{E}[\text{評価額}] \;-\; \mathbb{E}[\text{支払額}]
+      =\mathbb{E}[X_i] - \mathbb{E}[\mu_i]
+    \]
+    で表される．
+  \end{block}
+\end{frame}
+
+\section{5.1}
+% Slide 3: メカニズムの定義 (教科書精緻化 1/4)
+\begin{frame}{メカニズムの定義}
+  売り手が採用するメカニズム $\mathcal{M}=(\mathcal{B},\pi,\mu)$ は次の要素で構成される:
+  \begin{description}
+    \item[メッセージ集合 $\mathcal{B}=\prod_{i=1}^N\mathcal{B}_i$] 
+      各買い手 $i$ が送信できるメッセージ（入札）$b_i\in\mathcal{B}_i$ の集合。
+    \item[配分ルール $\pi:\mathcal{B}\to\Delta(\mathcal{N})$] 
+      入札ベクトル $b=(b_1,\dots,b_N)$ に対して、
+      買い手 $i$ の獲得確率 $\pi_i(b)$ を返す関数。
+    \item[支払いルール $\mu:\mathcal{B}\to\mathbb{R}^N$] 
+      各買い手 $i$ の期待支払い $\mu_i(b)$ を指定する関数。
+  \end{description}
+\end{frame}
+
+% Slide: 例: 第1・第2価格オークション（縦積み・詰め詰め版）
+\begin{frame}[t]{例: 第1・第2価格オークション}
+  \tiny\setlength{\parskip}{0pt}\setlength{\topsep}{0pt}
+  \vspace{-1ex}
+
+  \begin{block}{仮定}
+    入札域 $\mathcal B_i=\mathcal X_i$ （真値域と同じ）\\
+    留保価格（reservation price）は設定しない
+  \end{block}
+  \vspace{-1ex}
+
+  \begin{block}{配分ルール}
+    $\displaystyle
+      \pi_i(b)=
+      \begin{cases}
+        1, & b_i>\max_{j\neq i}b_j,\\
+        0, & \text{otherwise},
+      \end{cases}
+      \quad \sum_{i=1}^N\pi_i(b)=1$
+    \\
+    {\scriptsize (同点時は均等確率で勝者を選出)}
+  \end{block}
+  \vspace{-1ex}
+
+  \begin{block}{第一価格オークションの支払い}
+    $\displaystyle
+      \mu^I_i(b)=
+      \begin{cases}
+        b_i, & b_i>\max_{j\neq i}b_j,\\
+        0, & \text{otherwise}.
+      \end{cases}$
+  \end{block}
+  \vspace{-1ex}
+
+  \begin{block}{第二価格オークションの支払い}
+    $\displaystyle
+      \mu^{II}_i(b)=
+      \begin{cases}
+        \max_{j\neq i}b_j, & b_i>\max_{j\neq i}b_j,\\
+        0, & \text{otherwise}.
+      \end{cases}$
+  \end{block}
+\end{frame}
+
+% Slide 6: 戦略と均衡の解説
+\begin{frame}{戦略と均衡}
+  \tiny\setlength{\parskip}{0pt}\setlength{\topsep}{0pt}
+  \vspace{-1ex}
+  メカニズムは，買い手間に不完全情報下のゲームを定義します。
+  \begin{block}{不完全情報とは}
+    各買い手 $i$ は自分の真値 $x_i$ のみを知り，\emph{他の買い手の真値は分からない}状況。
+    そのため，戦略は自分の $value, type$ 等に依存した関数として定義されます。
+  \end{block}
+
+  \vspace{1ex}
+  \begin{block}{戦略プロファイル $\beta$}
+    各買い手 $i$ は，真値 $x_i\in[0,\omega_i]$ から
+    申告（入札）$b_i=\beta_i(x_i)\in\mathcal B_i$ を選択する関数 $\beta_i$ を持つ。
+  \end{block}
+
+  \vspace{1ex}
+  \textbf{均衡:}\\
+  すべての買い手 $i$ とあらゆる真値 $x_i$ について，\emph{他の買い手が
+  $\beta_{-i}$ を採用すると仮定したとき}，買い手 $i$ の選ぶ申告
+  \(\beta_i(x_i)\) は次式で定義される期待利得を最大化します：
+  \[
+    \beta_i(x_i)
+    \;\in\;
+    \arg\max_{b_i\in\mathcal{B}_i}
+    \underbrace{\mathbb{E}\bigl[\pi_i(b_i,\beta_{-i}(x_{-i}))\cdot x_i
+    \;-\;\mu_i(b_i,\beta_{-i}(x_{-i}))\bigr]}_{\text{期待利得}}
+  \]
+  これが成立する戦略プロファイル $\{\beta_i\}$ を均衡と呼ぶ。
+\end{frame}
+
+\begin{frame}{補足：ベイジアンナッシュ均衡について(1/2)}
+  不完全情報下の静学ゲームにおいて，プレイヤー \(i\) の利得関数 \(u_i\) は自らのタイプ \(\theta_i\) のみに依存し，
+  他のプレイヤーのタイプ集合 \(\theta_{-i}\) には依存しないとする。
+  純粋戦略プロファイル \(s^* = (s^*_i)_{i\in I}\) が
+  \emph{ベイジアンナッシュ均衡} であるとは，信念集合 \(f = \{f_i\}_{i\in I}\) のもとで
+  次が成り立つことを意味します：
+  \begin{equation*}
+    \begin{aligned}
+      &\forall\,i\in I,\;\forall\,\theta_i\in\Theta_i,\;\forall\,a_i\in A_i: \\[-0.5ex]
+      &\quad\mathbb{E}_{\theta_{-i}}\bigl[
+        u_i\bigl(s^*_i(\theta_i),\,s^*_{-i}(\theta_{-i}),\,\theta_i\bigr)
+        \mid \theta_i
+      \bigr] \\
+      &\quad\ge\;
+      \mathbb{E}_{\theta_{-i}}\bigl[
+        u_i\bigl(a_i,\,s^*_{-i}(\theta_{-i}),\,\theta_i\bigr)
+        \mid \theta_i
+      \bigr].
+    \end{aligned}
+  \end{equation*}
+\end{frame}
+
+% Slide: ベイズ・ナッシュ均衡の定義
+\begin{frame}[t]{補足：ベイジアンナッシュ均衡 について(2/2)}
+  \small
+  不完全情報下の静学ゲームにおいて，戦略プロファイル
+  \(\beta=(\beta_1,\dots,\beta_N)\) がベイズ・ナッシュ均衡であるとは，
+  任意の買い手 \(i\) と任意の真値 \(x_i\) について，
+  \[
+    \beta_i(x_i)\;\in\;
+    \arg\max_{b_i\in\mathcal B_i}
+    \;\mathbb{E}_{X_{-i}}\bigl[
+      \;\underbrace{\pi_i\bigl(b_i,\beta_{-i}(X_{-i})\bigr)\,x_i}_{\text{獲得確率}\times\text{真値}}
+      \;-\;
+      \underbrace{\mu_i\bigl(b_i,\beta_{-i}(X_{-i})\bigr)}_{\text{期待支払い}}
+    \bigr].
+  \]
+  ここで \(\mathbb{E}_{X_{-i}}\) は，他の買い手の型 \(X_{-i}\) に関する期待値を表す。
+  この条件を全ての \(i,x_i\) で満たす \(\{\beta_i\}\) が BNE である。
+\end{frame}
+
+\section{5.1.1}
+%% Slide 4: 真実申告メカニズムの導入
+\begin{frame}{直接メカニズムの導入}
+  \begin{itemize}
+    \item 一般メカニズムでは $\mathcal{B}_i$ を任意に設定できるが、単純化のため \textbf{直接メカニズム} では $\mathcal{B}_i=\mathcal{X}_i$ を仮定。
+    \item 買い手は評価額をそのまま申告：$b_i=x_i$. こうして得られるメカニズム $(Q,M)$ を
+      \emph{直接($direct$)メカニズム} と呼ぶ。
+    \begin{align}
+  Q &\colon X \to \Delta,\\
+  M &\colon X \to \mathbb{R}^N.
+    \end{align}
+    \item $Q_i(x)$: 評価額ベクトル $x$ のもとで $i$ が獲得する確率
+    \item $M_i(x)$: 評価額ベクトル $x$ のもとで $i$ が支払う期待額
+  \end{itemize}
+\end{frame}
+
+% Slide: 真実申告均衡の定義
+\begin{frame}{真実申告均衡の定義}
+  \small
+  \begin{block}{真実申告均衡（Truthful Equilibrium）}
+    直接型メカニズム $(Q,M)$ において，
+    各買い手 $i$ の戦略$t_i$を
+    \[
+      t_i(x_i) \;=\; x_i
+    \]
+    （自身の真の評価額 $x_i$ をそのまま申告）とする
+    戦略プロファイル
+    $t=(t_1,\dots,t_N)$ が均衡となる場合，このメカニズムは \emph{真実申告均衡} を有すると言う．
+  \end{block}
+\end{frame}
+
+%% Slide 6: Revelation原理の命題
+\begin{frame}{Revelation原理の命題}
+  \begin{block}{命題 5.1 (Revelation Principle)}
+    任意のメカニズム $\mathcal{M}=(\mathcal{B},\pi,\mu)$ とその均衡 $\beta$ があれば、
+    直接メカニズム $(Q,M)$ を構成して以下を満たす:
+    \begin{enumerate}
+      \item すべての買い手が真実申告均衡を採用する。
+      \item 元のメカニズムの均衡結果（配分・支払い）が再現される。
+    \end{enumerate}
+  \end{block}
+\end{frame}
+
+%% Slide 7: Revelation原理の証明 (1)
+\begin{frame}{Revelation原理の証明 (1/2)}
+  \textbf{証明の構成:}
+  \begin{itemize}
+    \item 元メカニズムの均衡戦略 $\beta_i(x_i)$ を用い、
+    \item 直接メカニズムの関数 $Q$ と $M$ を次のように定義:
+  \end{itemize}
+
+  \begin{center}
+    \[
+      Q_i(x) \;=\; \pi_i\bigl(\beta(x)\bigr),
+      \quad
+      M_i(x) \;=\; \mu_i\bigl(\beta(x)\bigr).
+    \]
+  \end{center}
+
+  この定義から、$Q(x),M(x)$ は $(\pi,\mu)$ と $\beta$ の合成である。
+\end{frame}
+
+
+%% Slide 8: Revelation原理の証明 (2)
+\begin{frame}{Revelation原理の証明 (2/2)}
+  \begin{itemize}
+    \item (1) 真実申告均衡性:
+      元メカニズムでは $\beta$ が均衡だったので、不正申告は有利にならない。
+      したがって直接メカニズムでも真実申告が最適。
+    \item (2) 結果の同一性:
+      定義から、任意 $x$ で $Q(x)=\pi(\beta(x))$ 、$M(x)=\mu(\beta(x))$ \newline
+      すなわち配分・支払いは元メカニズムと一致。
+  \end{itemize}
+  \begin{flushright}
+    ■
+  \end{flushright}
+\end{frame}
+
+
+% --- Slide: Revelation原理の直感 (1/3) ---
+\begin{frame}{Revelation原理の直感的理解 (1/3)}
+  \begin{block}{ステップ1: 均衡戦略を想定}
+    任意のメカニズム $\mathcal{M}=(\pi,\mu)$ とその
+    均衡戦略 $\beta=(\beta_1,\dots,\beta_N)$ を固定する。
+  \end{block}
+  \vspace{1ex}
+  ここでは各買い手 $i$ が真値 $x_i$ に応じて
+  \[
+    b_i = \beta_i(x_i)
+  \]
+  を提出し，メカニズムにより配分・支払いが決定される状況を想定する。
+\end{frame}
+
+% --- Slide: Revelation原理の直感 (2/3) ---
+\begin{frame}{Revelation原理の直感的理解 (2/3)}
+  \begin{block}{ステップ2: 直接申告メカニズムへの置き換え}
+    中間戦略 $\beta_i$ を省略し，\textbf{直接申告}で
+    真値 $x_i$ を提出させる。
+  \end{block}
+  \vspace{1ex}
+  直接メカニズムを
+  \[
+    Q_i(x)\;=\;\pi_i\bigl(\beta(x)\bigr),\qquad 
+    M_i(x)\;=\;\mu_i\bigl(\beta(x)\bigr)
+  \]
+  と定義すれば，元の均衡時の配分・支払いをそのまま再現できる。
+\end{frame}
+
+% --- Slide: Revelation原理の直感 (3/3) ---
+\begin{frame}{Revelation原理の直感的理解 (3/3)}
+  \begin{block}{ステップ3: インセンティブの保持}
+    仮にある買い手が真値 $x_i$ の代わりに $z_i$ を申告しても，
+    直接メカニズムは「\(\beta_i(z_i)\) を入札した場合」と同じ結果を与える。
+  \end{block}
+  \vspace{1ex}
+  元メカニズムの均衡 $\beta$ では
+  \[
+    \beta_i(x_i)\;\in\;\arg\max_{b_i}\;
+    \mathbb{E}\bigl[\pi_i(b_i,\beta_{-i})\,x_i
+      -\mu_i(b_i,\beta_{-i})\bigr],
+  \]
+  すなわち不正申告 \(z_i\) は有利にならず，直接メカニズムも
+  真実申告が均衡を保つ。
+\end{frame}
+
+%% Slide 10: Revelation原理の意義と帰結
+\begin{frame}{Revelation原理の意義}
+  \begin{itemize}
+    \item すべてのメカニズム設計問題は「直接メカニズム」の問題に帰着可能。
+    \item 設計空間を大幅に狭めても一般性を失わない。
+    \item 以降は「真実申告
+    メカニズム」に限定して議論を進める。
+  \end{itemize}
+\end{frame}
+
+\section{5.1.2}
+
+% Slide: 5.1.2 インセンティブ両立性の含意 ― 論理展開
+\begin{frame}{5.1.2の概要}
+  \small
+  本セクションでは，IC条件をまず説明し、次にそれから得られる主な含意を以下の３段階で示します。
+  \vspace{1ex}
+  \begin{enumerate}
+    \item \textbf{凸性の導出}  
+      \[
+        U_i(x_i)
+        =\max_{z_i}\{\,q_i(z_i)x_i - m_i(z_i)\}
+        \;\Rightarrow\;
+        U_i \text{ は凸関数}
+      \]
+    \item \textbf{導関数と単調性}  
+      ：凸関数の性質より
+      \[
+        U_i'(x_i)=q_i(x_i)
+        \quad\Longrightarrow\quad
+        q_i \text{ は非減少}
+      \]
+    \item \textbf{積分表示・ペイオフ等価性}  
+      ：ほぼ至る所で微分可能かつ，その導関数の積分で元の関数を復元できるので
+      \[
+        U_i(x_i)=U_i(0)+\int_{0}^{x_i}q_i(t)\,dt,\quad
+        m_i(x_i)=m_i(0)+q_i(x_i)x_i-\int_{0}^{x_i}q_i(t)\,dt
+      \]
+      → 同一配分ルール下で期待収入は定数差のみ
+  \end{enumerate}
+\end{frame}
+
+
+% Slide 6a: IC 定義と期待効用
+\begin{frame}{インセンティブ両立性条件（Incentive Compatibility）— 設定}
+  \begin{itemize}
+    \item 直接メカニズム $(Q,M)$ において、申告した値 $z_i$ のときの
+    配分確率と支払いを次のように定義する：  
+    \begin{equation}\tag{5.1}
+      q_i(z_i)
+      = \int_{\mathcal{X}_{-i}} Q_i(z_i,x_{-i})\,f_{-i}(x_{-i})\,\mathrm{d}x_{-i},
+    \end{equation}
+    \begin{equation}\tag{5.2}
+      m_i(z_i)
+      = \int_{\mathcal{X}_{-i}} M_i(z_i,x_{-i})\,f_{-i}(x_{-i})\,\mathrm{d}x_{-i}.
+    \end{equation}
+    \small
+    \begin{itemize}
+      \item $Q_i(z_i,\,x_{-i})$  
+        直接メカニズムの配分関数。  
+        申告したベクトル $(z_i,\,x_{-i})$ のもとで買い手 $i$ に財を配分する確率
+      \item $M_i(z_i,\,x_{-i})$  
+        直接メカニズムの支払い関数。  
+        申告したベクトル $(z_i,\,x_{-i})$ のもとで買い手 $i$ が支払う金額
+      \item $f_{-i}(x_{-i})$  
+        他者評価額ベクトル $x_{-i}$ の同時確率密度
+    \end{itemize}
+    \item 真値 $x_i$ のとき申告 $z_i$ をすると、期待効用は
+    \begin{equation}\tag{5.3}
+      U_i(x_i;z_i)
+      = q_i(z_i)\,x_i \;-\; m_i(z_i).
+    \end{equation}
+  \end{itemize}
+\end{frame}
+
+% Slide 6b: IC 条件
+\begin{frame}{IC(インセンティブ両立性条件)について — 定義}
+  \begin{block}{インセンティブ両立性条件}
+    すなわち、各買い手は真実申告 $z_i=x_i$ を最適化する：
+    \begin{equation}\tag{5.4}
+      U_i(x_i)\;\equiv\;q_i(x_i)\,x_i - m_i(x_i)
+      \;\ge\;
+      q_i(z_i)\,x_i - m_i(z_i),
+      \quad\forall\,z_i,\,\forall\,x_i.
+    \end{equation}
+  \end{block}
+  \vspace{1ex}
+  ここで \alert{$U_i(x_i)$} は\emph{均衡利得関数 (Equilibrium Payoff Function)}と呼ぶ。
+\end{frame}
+
+
+% Slide: IC の含意 
+\begin{frame}{IC について — アフィン関数}
+  インセンティブ両立性条件の主な含意：
+  \begin{enumerate}
+    \item 申告した値 $z_i$ を固定すると，期待効用
+      \[q_i(z_i)x_i - m_i(z_i)\]
+      は真値 $x_i$ に関するアフィン関数となる。
+    \item よって
+      \[U_i(x_i)=\max_{z_i\in\mathcal{X}_i}\{q_i(z_i)x_i - m_i(z_i)\}\]
+      より，$U_i(x_i)$ はアフィン関数族の最大として \textbf{凸関数} である。
+  \end{enumerate}
+\end{frame}
+
+% Slide: IC の含意 (2/3)
+\begin{frame}{IC について— 接線の傾き}
+  さらに任意の $x_i,z_i$ に対して，
+  \[
+    q_i(x_i)z_i - m_i(x_i)
+    = U_i(x_i) + q_i(x_i)(z_i - x_i)
+  \]
+  となるため，IC 条件 (5.4) は
+  \[
+    U_i(z_i)\ge U_i(x_i) + q_i(x_i)(z_i - x_i)
+  \]
+  と同値であり，$q_i(x_i)$ は関数 $U_i$ の接線の傾きとなる。
+\end{frame}
+
+\begin{frame}{IC について — 接線と凸関数性}
+  \begin{equation*}
+    \begin{aligned}
+      q_i(x_i)\,z_i &- m_i(x_i) \\
+      &= \bigl(q_i(x_i)x_i - m_i(x_i)\bigr)
+         + q_i(x_i)(z_i - x_i) \\
+      &= U_i(x_i) + q_i(x_i)(z_i - x_i).
+    \end{aligned}
+  \end{equation*}
+  よってインセンティブ両立性条件は
+  \begin{equation}\tag{5.5}
+    U_i(z_i)\;\ge\;U_i(x_i) + q_i(x_i)(z_i - x_i)
+  \end{equation}
+  と同値となり，\alert{接線}の傾き \(q_i(x_i)\) が示す通り
+  \(U_i\) は\alert{凸関数}である。\\[1ex]
+\end{frame}
+
+\begin{frame}{IC について — 導関数と非減少性}
+  凸関数 $U_i$ は絶対連続かつほとんど至る所で微分可能である。よって
+  \begin{equation}
+    U_i'(x_i)=q_i(x_i)
+    \tag{5.6}
+  \end{equation}
+  が成り立ち，$q_i$ は\alert{非減少関数}となる。
+  \small
+  \begin{block}{単調非減少性}
+    評価額 \(x_i\) が大きくなるほど，対応する傾き（＝割り当て確率）\(q_i(x_i)\) は単調非減少となる：
+    \[
+      x_i' > x_i
+      \quad\Longrightarrow\quad
+      q_i(x_i') \;\ge\; q_i(x_i)
+      \quad(\forall\,x_i',x_i\in\mathcal{X}_i).
+    \]
+  \end{block}
+\end{frame}
+
+% Slide: 積分表示とペイオフ等価性
+\begin{frame}{IC について — 積分表示と{ペイオフ等価性}}
+  絶対連続性より，式(5.7) は次のように２行で表せる：
+  \begin{equation}\tag{5.7}
+    \begin{aligned}
+      U_i(x_i)
+      &= U_i(0)
+       + \int_{0}^{x_i} q_i(t)\,\mathrm{d}t,\\
+      m_i(x_i)
+      &= m_i(0)
+       + q_i(x_i)\,x_i
+       - \int_{0}^{x_i} q_i(t)\,\mathrm{d}t.
+    \end{aligned}
+  \end{equation}
+  これにより，期待効用の“形”は配分ルール $q_i$ のみで決まり，
+  支払いルール$m_i$ は定数 $U_i(0)$ をシフトするだけである。\\[1ex]
+\end{frame}
+
+
+% Slide: 非減少性がICの必要十分条件
+\begin{frame}{IC について ー非減少性との関係}
+  IC 条件(5.5)を積分表示(5.7)で書き換えると，
+  \[
+    \int_{x_i}^{z_i}q_i(t)\,dt \;\ge\; q_i(x_i)(z_i - x_i).
+  \]
+  この不等式が全ての $x_i<z_i$ で成立するための必要十分条件は，
+  \[
+    q_i(x_i)\text{ が非減少関数}
+  \]
+  であること。従って
+  \[
+    \text{IC}\;\Longleftrightarrow\; q_i\text{ は非減少関数}.
+  \]
+\end{frame}
+
+% Slide: Revenue Equivalence (Redux) — 命題と等式
+\begin{frame}{Revenue Equivalence (Redux)(1/3)}
+  \begin{block}{Proposition 5.2 (Revenue Equivalence)}
+    直接メカニズム $(Q,M)$ がインセンティブ両立性条件を満たすならば，
+    任意の買い手 $i$ と型 $x_i$ に対して期待支払いは
+    \[
+      m_i(x_i)
+      = m_i(0)
+      + q_i(x_i)\,x_i
+      \;-\;\int_{0}^{x_i}q_i(t)\,dt
+      \tag{5.8}
+    \]
+    で表される。
+  \end{block}
+  \vspace{1ex}
+  すなわち，同一の配分ルール $Q$ を持つ２つの IC メカニズムは，  
+  支払いルールが異なっていても，定数差を除いて同一の期待支払い関数を持つ。  
+  （Payoff equivalence の一般化）
+\end{frame}
+
+% Slide: Revenue Equivalence (Redux) — 証明
+\begin{frame}{Revenue Equivalence (Redux) (2/3)}
+  教科書より：
+  \[
+    U_i(x_i) = q_i(x_i)x_i - m_i(x_i),\quad
+    U_i(0) = -m_i(0),
+  \]
+  と定義すると，式(5.7)
+  \[
+    U_i(x_i)=U_i(0)+\int_{0}^{x_i}q_i(t)\,dt
+  \]
+  は
+  \[
+    q_i(x_i)x_i - m_i(x_i)
+    = -m_i(0) + \int_{0}^{x_i}q_i(t)\,dt
+  \]
+  と書き換えられる。整理して
+  \[
+    m_i(x_i)
+    = m_i(0) + q_i(x_i)x_i - \int_{0}^{x_i}q_i(t)\,dt.
+  \]
+  これが命題 5.2 の主張となる。■
+\end{frame}
+
+% Slide: Revenue Equivalence (Redux) — 応用と注意点
+\begin{frame}{Revenue Equivalence (Redux)(3/3)}
+  \begin{itemize}
+    \item $m_i(0)$は実質的に参加料を表す。今回の場合、IR条件のもとで0になる。
+    \item 右辺の第3式はIC条件を確保するための情報レントと捉えることができる。
+    \item Proposition 5.2 は，Chapter 3 の対称買い手の場合の収入等価性（Proposition 3.1）を拡張したもの。
+    \item 買い手が対称かつ効率的配分を行うオークション（例えば第二価格オークション）では，
+          $m_i(0)=0$ と定めることで支払いが一意に決まる。
+    \item 一般に，\emph{同一の配分ルールを共有する限り}，
+          すべての IC メカニズムは定数差のみで期待収入が一致する。
+  \end{itemize}
+\end{frame}
+
+% Slide: 第一価格オークションにおける配分確率と絶対連続性
+\begin{frame}{補足：第一価格オークション：配分確率と絶対連続性}
+  \small
+  \begin{block}{配分確率の定義}
+    \[
+      q_i(x_i)
+      = \int_{\mathcal X_{-i}}
+          \mathbf{1}\{\,b(x_i) > \max_{j\neq i} b(x_j)\}
+          \prod_{j\neq i} f_j(x_j)\,\mathrm{d}x_{-i}.
+    \]
+    （同型・対称入札関数 \(b\) の下では）
+    \[
+      q_i(x_i)
+      = \Pr\bigl(X_j \le x_i\;\forall j\neq i\bigr)
+      = \bigl[F(x_i)\bigr]^{\,N-1}.
+    \]
+  \end{block}
+
+  \vspace{1ex}
+  \begin{block}{絶対連続性の確認}
+    \(F\) は連続分布関数（密度 \(f\) を持つ）なので
+    \[
+      q_i(x_i)
+      = \bigl[F(x_i)\bigr]^{\,N-1}
+    \]
+    は区間上で微分可能．すなわち
+    \[
+      q_i'(x_i)
+      = (N-1)\bigl[F(x_i)\bigr]^{\,N-2}\,f(x_i)
+    \]
+    が存在し，
+    \(\,q_i(x_i)\) は絶対連続性を満たす．
+  \end{block}
+\end{frame}
+
+
+% Slide: 絶対連続性の定義
+\begin{frame}{補足：絶対連続性の定義}
+  \small
+  \begin{block}{直感的定義}
+    関数の全変化量は「局所的な変化（傾き）の積み重ね」で説明でき、グラフにジャンプや折れ目が生じない性質。
+  \end{block}
+  \begin{block}{数学的定義}
+    関数 \(f:[a,b]\to\mathbb{R}\) が絶対連続であるとは，次の同値な条件を満たすこと：
+    \begin{enumerate}
+      \item 任意の \(\varepsilon>0\) に対し，ある \(\delta>0\) が存在して，\newline
+        互いに素な有限区間列 \(\{(x_k,y_k)\}\) で \(\sum_k(y_k - x_k)<\delta\) のとき
+        \(\sum_k|f(y_k) - f(x_k)|<\varepsilon\) が成り立つ．
+      \item \(f\) はほとんど至るところで微分可能かつ \(f'\) が可積分であり，
+        \[
+          f(x) \;=\; f(a) \;+\; \int_a^x f'(t)\,\mathrm{d}t
+          \quad(\forall\,x\in[a,b]).
+        \]
+    \end{enumerate}
+  \end{block}
+\end{frame}
+
+
+\section{補足:アフィン関数と凸関数}
+% Slide: 凸性の理解—Affine 関数族の最大
+\begin{frame}{補足：凸性の理解—Affine 関数族の最大 (1/3)}
+  \begin{block}{命題}
+    任意の集合 $Z$ 上の affine 関数族
+    \[
+      \{\,f_z(x) = a_z x + b_z \mid z\in Z,\;a_z,b_z\in\mathbb R\}
+    \]
+    に対し，
+    \[
+      U(x) \;=\;\max_{z\in Z}\{\,f_z(x)\}
+    \]
+    と定義すると，$U(x)$ は凸関数である。
+  \end{block}
+  \vspace{1ex}
+  \textbf{直感:}
+  Affine 関数はすべて傾き一定の直線。これらの「上包絡線」を取ると、  
+  任意の区間で「線分」が常に関数の上を覆うため、凸性が保証される。
+\end{frame}
+
+% Slide: 凸性の証明—包絡線定理との関係
+\begin{frame}{補足：凸性の証明—包絡線定理との関係 (2/3)}
+  \begin{proof}
+    任意の $x_1,x_2\in\mathbb R$ と $\lambda\in[0,1]$ を取る。
+    \[
+      U\bigl(\lambda x_1 + (1-\lambda)x_2\bigr)
+      = \max_{z}\{\,a_z(\lambda x_1+(1-\lambda)x_2)+b_z\}.
+    \]
+    ここで、各 $z$ について
+    \[
+      a_z(\lambda x_1+(1-\lambda)x_2)+b_z
+      = \lambda\,(a_z x_1+b_z)
+      + (1-\lambda)\,(a_z x_2+b_z).
+    \]
+    よって
+    \[
+      U(\lambda x_1+(1-\lambda)x_2)
+      \le \max_z \bigl[\lambda f_z(x_1)+(1-\lambda)f_z(x_2)\bigr]
+      \le \lambda\,U(x_1)+(1-\lambda)\,U(x_2).
+    \]
+    これで凸性 $U(\lambda x_1+(1-\lambda)x_2)\le\lambda U(x_1)+(1-\lambda)U(x_2)$ を示した。
+  \end{proof}
+\end{frame}
+
+% Slide: 経済学への応用—Envelope 定理とのリンク
+\begin{frame}{補足：経済学への応用—Envelope 定理とのリンク (3/3)}
+  \begin{itemize}
+    \item メカニズム設計では，
+      \(\displaystyle U_i(x_i)=\max_{z_i}\{\,q_i(z_i)x_i - m_i(z_i)\}\)
+      の形で凸性を得る。
+    \item Envelope 定理を使うと，最適 \(z_i(x_i)\) に関して
+      \[
+        \frac{dU_i}{dx_i} = q_i\bigl(z_i(x_i)\bigr)
+        \;\approx\; q_i(x_i)
+      \]
+      が成り立ち，IC 条件の微分形につながる。
+    \item 結論: 凸性と包絡線の構造が，IC 条件や支払い関数の一意性論証の基盤。
+  \end{itemize}
+\end{frame}
+
+% --- Slide: Envelope 定理の数学的形態詳細 (1/2) ---
+\begin{frame}{補足:Envelope 定理の数学的形態詳細 (1/2)}
+  \begin{block}{一般的な Envelope 定理}
+    関数 \(f(x,z)\) が
+    \begin{itemize}
+      \item \(x\) について連続的に微分可能、
+      \item \(z\) についてコンパクト集合 \(\mathcal Z\) 上で定義、
+      \item \(f\) と最適選択 \(z^*(x)\) が適切に可測
+    \end{itemize}
+    を満たすとき、
+    \[
+      V(x)=\max_{z\in\mathcal Z}f(x,z)
+      \quad\Longrightarrow\quad
+      V'(x)=\frac{\partial f}{\partial x}\bigl(x,z^*(x)\bigr).
+    \]
+  \end{block}
+  \vspace{1ex}
+  メカニズム設計では
+  \(\;f(z_i;x_i)=q_i(z_i)\,x_i - m_i(z_i)\;\)
+  をこの形に当てはめます。
+\end{frame}
+
+
+% --- Slide: Envelope と Affine 関数族の上包絡線 (2/2) ---
+\begin{frame}{補足：Envelope と Affine 関数族の上包絡線 (2/2)}
+  \begin{itemize}
+    \item \(f(z;x)=q(z)x - m(z)\) は \(x\) に関する affine（線形＋定数項）の族を構成。
+    \item その上包絡線（upper envelope）とは、点ごとに「最大値を与える直線」を継ぎ合わせた曲線であり、
+      \[
+        U(x)=\max_z\{\,q(z)x - m(z)\,\}
+      \]
+      と一致する。この関数は凸性を持つ。
+    \item 幾何的に、上包絡線の任意点での接線の傾きが
+      \(\displaystyle U'(x)=q\bigl(z^*(x)\bigr)\)
+      に対応する。
+  \end{itemize}
+  \vspace{1ex}
+  この２つの視点（Envelope 定理 vs. 上包絡線）が合致することで、
+  インセンティブ互換性（IC）の微分形
+  \(\;U_i'(x_i)=q_i(x_i)\;\)
+  が厳密に導かれます。
+\end{frame}
+
+\section{次回：5.1.3}
+
+% Slide: 個人合理性 (Individual Rationality) 1/3
+\begin{frame}{(次回)個人合理性 (Individual Rationality)}
+  \begin{block}{定義}
+    直接メカニズム $(Q,M)$ は \emph{個人合理的 (individually rational)} であるとは，
+    \[
+  \forall\,i\in N,\quad \forall\,x_i\in X_i,\quad U_i(x_i)\;\ge\;0.
+    \]
+    つまり、
+    \[
+      U_i(x_i)\equiv q_i(x_i)\,x_i \; - \; m_i(x_i)\;\ge\;0
+    \]
+    が成り立つことである。
+  \end{block}
+  \vspace{1ex}
+  ここで非参加時の利得を $0$ と仮定し，\emph{参加しない選択肢}を保証する条件としている。
+\end{frame}
+
+% Slide: IC 下での個人合理性の帰結
+\begin{frame}{(次回)IC 下での個人合理性の帰結}
+  \begin{itemize}
+    \item IC より，式(5.7)
+      \[U_i(x_i)=U_i(0)+\int_{0}^{x_i}q_i(t)\,dt\]
+      が成り立つ。
+    \item よって $U_i(x_i)\ge0$ は最も厳しく
+      \[U_i(0)\ge0\]
+      を要求する。
+    \item 定義 $U_i(x_i)\equiv q_i(x_i)x_i - m_i(x_i)$ から
+      \[U_i(0)=-m_i(0)\]
+    \item 結論：
+      \[U_i(0)\ge0\iff m_i(0)\le0\]
+      すなわち $x_i=0$ のとき支払いを徴収しない。
+  \end{itemize}
+\end{frame}
+
+% Slide: 個人合理性の解釈と応用例 3/3
+\begin{frame}{(次回）個人合理性の解釈と応用例}
+  \begin{itemize}
+    \item $m_i(0)\le0$ は，「価値 0 の参加者が負担を負わない」ことを意味。
+    \item 通常は基準化として $m_i(0)=0$ を採用し，\emph{参加費なし}を保証。
+    \item 個人合理性を満たすことで，\emph{全ての買い手が少なくとも不参加時より良いか同等}となり，
+      メカニズムへの参加を確実に誘導できる。
+    \item reserve価格設定や補助金付きオークション設計の際に関係する
+  \end{itemize}
+\end{frame}
+
+\end{document}
+
+
+\section{Appendix}
+\begin{frame}{A.2 RegretNet：組合せ評価への対応}
+  \small
+  \begin{itemize}
+    \item 本節では、一般的な組合せ型評価（combinatorial valuations）を持つ入札者に対応するために、RegretNetアーキテクチャをどのように調整するかを示す.
+    \item この設定では、各入札者 $i$ は、空集合を除くすべてのアイテム集合 $S \subseteq M$ に対して、ビッド $b_{i,S}$ を報告する（空集合に対する評価は 0 とする）。
+    \item ネットワークの割当コンポーネント（allocation component）は、各入札者 $i$ と各バンドル $S$ に対して出力 $z_{i,S} \in [0, 1]$ を持つ。
+    \item これは、入札者 $i$ にバンドル $S$ が割り当てられる確率を意味する。
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{A.2 RegretNet：組合せ割当のconstraintとスコア設計}
+  \small
+  \begin{itemize}
+    \item アイテムの過剰割当を防ぐため、次の2つのconstraintを課す：
+    \begin{enumerate}
+      \item 各アイテム $j \in M$ に対し、それが割当てられる確率の合計は高々1：
+      \[
+      \sum_{i \in N} \sum_{S \subseteq M: j \in S} z_{i,S} \leq 1 \quad \text{（式14）}
+      \]
+      \item 各入札者 $i \in N$ に対し、バンドルの割当確率の合計も高々1：
+      \[
+      \sum_{S \subseteq M} z_{i,S} \leq 1 \quad \text{（式15）}
+      \]
+    \end{enumerate}
+    \item これらのconstraintを満たす割当を「組合せ的に実現可能（combinatorial feasible）」と呼ぶ。
+    \item constraintを実装するため、ネットワークの割当コンポーネントは以下のA group of scoresを計算する：
+    
+    \begin{itemize}
+      \item 各入札者 $i \in N$ に対して：すべてのバンドル $S \subseteq M$ にスコア $s_{i,S}$
+      \item 各アイテム $j \in M$ に対して：すべての $i \in N$ と $S \subseteq M$ にスコア $s^{(j)}_{i,S}$
+    \end{itemize}
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{A.2 RegretNet：割当スコアの正規化と定義}
+  \small
+  \begin{itemize}
+    \item A group of scoresを以下のように定義する：
+    \begin{itemize}
+      \item 入札者ごとのscores in matrix form：$s \in \mathbb{R}^{n \times 2^m}$
+      \item アイテムごとのA group of scores：$s^{(1)}, \ldots, s^{(m)} \in \mathbb{R}^{n \times 2^m}$
+    \end{itemize}
+
+    \item Each group of scoresはソフトマックス関数によって正規化される：
+    \[
+    \bar{s}_{i,S} = \frac{\exp(s_{i,S})}{\sum_{S'} \exp(s_{i,S'})},       \quad
+    \bar{s}^{(j)}_{i,S} = \frac{\exp(s^{(j)}_{i,S})}{\sum_{i', S'} \exp(s^{(j)}_{i', S'})}
+    \]
+
+    \item 各入札者 $i$ に対するバンドル $S \subseteq M$ の割当確率は以下の最小値として定義される：
+    \[
+    z_{i,S} = \phi^{\text{CF}}_{i,S}(s, s^{(1)}, \ldots, s^{(m)}) = \min \left( \bar{s}_{i,S}, \, \bar{s}^{(j)}_{i,S} \text{ for all } j \in S \right)
+    \]
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{A.2 実現可能性}
+  \small
+  \textbf{定義 A.1：実現可能性（Implementability）} \\
+  Fractionalな組合せ割当 $z$ が実現可能であるとは、それが \textbf{組合せ的に実現可能な確定的割当}の凸結合として表現できる場合をいう。
+
+  \vspace{0.5em} 
+  しかし、以下の例により、ある組合せ的に実現可能な割当でも、整数的な分解（integer decomposition）が存在しないことが示される。
+\end{frame}
+
+\begin{frame}{A.2 非実現可能な例}
+  \small
+  \textbf{例 A.1：実現不能な組合せ割当} \\
+  2人の入札者と2つのアイテムがある設定において、次のようなFractionalな割当を考える：
+  \[
+  z = \begin{bmatrix}
+  z_{1,\{1\}} & z_{1,\{2\}} & z_{1,\{1,2\}} \\
+  z_{2,\{1\}} & z_{2,\{2\}} & z_{2,\{1,2\}}
+  \end{bmatrix}
+  = \begin{bmatrix}
+  \frac{3}{8} & \frac{3}{8} & \frac{1}{4} \\
+  \frac{1}{8} & \frac{1}{8} & \frac{1}{4}
+  \end{bmatrix}
+  \]
+
+  この $z$ を次のようなInteger Allcationの凸結合で表そうとすると：
+
+  \[
+  z = 
+  a \begin{bmatrix} 0 & 0 & 1 \\ 0 & 0 & 0 \end{bmatrix}
+  + b \begin{bmatrix} 0 & 0 & 0 \\ 0 & 0 & 1 \end{bmatrix}
+  + c \begin{bmatrix} 1 & 0 & 0 \\ 0 & 1 & 0 \end{bmatrix}
+  + d \begin{bmatrix} 1 & 0 & 0 \\ 0 & 0 & 0 \end{bmatrix}
+  + e \begin{bmatrix} 0 & 0 & 0 \\ 0 & 1 & 0 \end{bmatrix}
+  \]
+  \[
+  + f \begin{bmatrix} 0 & 1 & 0 \\ 1 & 0 & 0 \end{bmatrix}
+  + g \begin{bmatrix} 0 & 1 & 0 \\ 0 & 0 & 0 \end{bmatrix}
+  + h \begin{bmatrix} 0 & 0 & 0 \\ 1 & 0 & 0 \end{bmatrix}
+  \]
+
+
+  係数は $a = b = \frac{1}{4}$、$c + d = \frac{3}{8}$、$f + g = \frac{3}  {8}$ を満たす必要がある。
+
+  しかし合計は：
+  \[
+  a + b + c + d + e + f + g + h \geq \frac{1}{2} + \frac{3}{4} = \frac{5}{4}
+  \]
+  となり、1 を超えるため、$z$ は実現可能ではない。
+\end{frame}
+
+\begin{frame}{A.2 Integer Decompositionを保証するconstraintと定理A.3}
+  \small
+  \begin{itemize}
+    \item 組合せ的に実現可能な割当 $z$ がinteger decomposition possibleであることを保証するには、追加のconstraintが必要。
+    \item 2アイテム（$m=2$）の場合、次のconstraintを導入する：
+    \[
+    \forall i, \quad z_{i,\{1\}} + z_{i,\{2\}} \leq 1 - \sum_{i'=1}^{n} z_{i',\{1,2\}} \quad \text{（式17）}
+    \]
+    \item このconstraintは、2つのアイテムが両方とも含まれるバンドルの過剰割当を抑制する。
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{A.2 Integer Compositionを保証するconstraintと定理A.3}
+  \small
+  \textbf{定理 A.3}：\\
+  $m = 2$ のとき、additional constraint（式17）を満たす任意の組合せ的に実現可能な割当 $z$ は、以下のように表すことができる：
+  \[
+  z = \sum_{k} \lambda_k B_k
+  \] 
+  ここで、各 $B_k$ は 0-1 行列で、組合せ的に実現可能な割当である（すなわち、確定的な割当）。\\
+  \vspace{0.5em}
+  \textbf{方針}：$z$ を、{1,2}バンドルを割り当てる部分 $B_i$ と、それ以外の部分 $C$ に分解する。\\
+  \vspace{0.5em}
+  \textbf{観察}：確定的な割当 $B$ において、ある $i$ に対して $B_{i,\{1,2\}} = 1$ であれば、他のすべての入札者 $j \ne i$ に対し、$B_{j,S} = 0$ でなければならない。
+\end{frame}
+
+
+\begin{frame}{A.2 定理A.3の証明（m=2のInteger Composition Possible）}
+  \small
+  \textbf{ステップ1：分解}
+  \[
+  z = \sum_{i=1}^{n} z_{i,\{1,2\}} \cdot B_i + C
+  \]
+  ここで、
+  \[
+  B_i(j,S) = 
+  \begin{cases}
+  1 & \text{if } j = i,\, S = \{1,2\} \\
+  0 & \text{otherwise}
+  \end{cases}
+  \]
+
+  \vspace{0.5em}
+  \textbf{ステップ2：残差部分 $C$ の性質}
+  \begin{itemize}
+    \item $C$ の {1,2} 列はすべて 0。
+    \item 各アイテムについて：
+      \[
+      \sum_i C_{i,\{1\}} \leq 1 - \sum_i z_{i,\{1,2\}}, \quad
+      \sum_i C_{i,\{2\}} \leq 1 - \sum_i z_{i,\{1,2\}}
+      \]
+    \item さらに、additional constraint（17）より：
+      \[
+      C_{i,\{1\}} + C_{i,\{2\}} = z_{i,\{1\}} + z_{i,\{2\}} \leq 1 - \sum_i z_{i,\{1,2\}}
+      \]
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{A.2 定理A.3の結論}
+  \textbf{結果}：$C$ はScaling Factor  $1 - \sum_i z_{i,\{1,2\}}$ を持つ二重確率行列（doubly stochastic matrix）であり、したがって $C$ は可行な0-1割当行列の線形結合として分解可能。
+  \[
+  C = \sum_k p_k \cdot B_k, \quad \sum_k p_k \leq 1 - \sum_i z_{i,\{1,2\}}
+  \]
+\end{frame}
+
+\begin{frame}{A.2.1 RegretNet：2アイテムオークションへの拡張}
+  \small
+  \textbf{目的}：2アイテムのケースで、additional constraint（式17）を満たすようにするため、各入札者に対して追加のSoftmax層を導入する。
+
+  \vspace{0.5em}
+  \textbf{従来の input scores（入札者・アイテムごと）}：
+  \begin{itemize}
+    \item un-normalized bidder-wise scores：$s_{i,S}$（$\forall i \in N$, $S \subseteq M$）
+    \item item-wise score：$s^{(j)}_{i,S}$（$\forall i \in N$, $S \subseteq M$, $j \in M$）
+    \item それぞれに対応するSoftmax-normalized score：$\bar{s}_{i,S}$ および $\bar{s}^{(j)}_{i,S}$
+  \end{itemize}
+
+  \vspace{0.5em}
+  \textbf{Implementability対応の追加スコア（補助Softmax）}：
+  \begin{itemize}
+    \item 各入札者 $i$ に対し、以下のAdditional Scores $s^{(i)}_{k,S}$ を計算する：\\
+     $s^{(i)}_{i,\{1\}}$, $s^{(i)}_{i,\{2\}}$, $s^{(i)}_{1,\{1,2\}}, \ldots, s^{(i)}_{n,\{1,2\}}$
+\[
+\begin{aligned}
+&\text{for all } i, k \in N,\ S \subseteq M, \\
+&\quad \bar{s}^{(i)}_{k,S} = 
+  \frac{\exp(s^{(i)}_{k,S})}{
+    \exp(s^{(i)}_{i,\{1\}}) + \exp(s^{(i)}_{i,\{2\}}) +
+    \sum_{k'} \exp(s^{(i)}_{k',\{1,2\}})
+  }
+\end{aligned}
+\]
+
+  \end{itemize}
+\end{frame}
+
+
+\begin{frame}{A.2.1 最終割当と支払いの定義}
+  \small
+  \textbf{Additional constraint(17)を満たすために補正したnormalized score $\bar{s}'_{i,S}$ の定義}：
+
+  \[
+  \bar{s}'_{i,S} =
+  \begin{cases}
+  \bar{s}^{(i)}_{i,S} & \text{if } S = \{1\} \text{ or } \{2\} \\
+  \min\left\{ \bar{s}^{(k)}_{i,S} : k \in N \right\} & \text{if } S = \{1, 2\}
+  \end{cases}
+  \]
+
+  \vspace{0.5em}
+  \textbf{最終的な割当確率 $z_{i,S}$ の定義}：
+  \[
+  z_{i,S} = \min\left( \bar{s}_{i,S}, \, \bar{s}'_{i,S}, \, \bar{s}^{(j)}_{i,S} : j \in S \right)
+  \]
+
+  \vspace{0.5em}
+  \textbf{支払いコンポーネント}（Figure 3と同様の構造）：
+  \begin{itemize}
+    \item 各入札者 $i$ に対して、Sigmoid Unitを用いてFractional Payment $\tilde{p}_i \in [0,1]$ を計算。
+    \item 最終的な支払い額：
+    \[
+    p_i = \tilde{p}_i \cdot \sum_{S \subseteq M} z_{i,S} \cdot b_{i,S}
+    \]
+  \end{itemize}
+\end{frame}

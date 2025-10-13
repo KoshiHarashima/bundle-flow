@@ -1,0 +1,310 @@
+\documentclass[dvipdfmx,autodetect-engine]{beamer}
+
+% 好みのテーマ（必要なら後で変更）
+\usetheme{Madrid}
+\usecolortheme{default}
+
+% 共通前置き＆マクロ
+\input{../../shared/preamble_beamer.tex}
+\input{../../shared/macros.tex}
+
+\title{\papertitle}
+\author{\paperauthor}
+\institute{\paperaffil}
+\date{\paperdate}
+
+\begin{document}
+
+\begin{frame}
+  \titlepage
+\end{frame}
+
+\begin{frame}{Abstract}
+  \small
+  \begin{itemize}
+    \item 発表の趣旨：
+    \begin{itemize}
+      \item 複数アイテムに対するICかつ収入が最大となるオークション設計について考える.
+      \item Krishnaと問題設定や表記が異なるため整理する.
+      \item 確率的な割り当てについての考察を加えた。
+      \item ベクトルは太字で表記した。
+    \end{itemize}
+\end{itemize}
+\end{frame}
+
+\section{2-1}
+\begin{frame}{2.1  Preliminaries：評価関数}
+  \small
+  \begin{itemize}
+    \item 参加者 ($bidders$) の集合 $N = \{1, \ldots, n\}$ と,\\
+          アイテム ($items$) の集合 $M = \{1, \ldots, m\}$ を考える.\\
+          どちらも有限の集合である.
+    {\small
+    \item 各参加者 $i$ は評価関数($Valuation Function$)  
+      \[
+        v_i: 2^M \;\rightarrow\;\mathbb{R}_{\ge0}
+      \]
+      を持つ.
+      特に確率的な割り当てに関しては、
+      \[
+        v_i: \mathbb{R}^{2^{|M|}} \;\rightarrow\;\mathbb{R}_{\ge0}
+      \]
+      が成り立つ。これは任意の部分集合 $S \subseteq M$ に対し,$v_i(S)$ がその価値を表す.空集合なら評価は0とみなす.
+    \item [補足1]$2^M$ は,集合 $M$ の すべての部分集合を集めた集合(冪集合)を表す.すなわちアイテムが $m$ 個あるとき,その個数(濃度)は $|2^M|= 2^{\lvert M \rvert} = 2^m$ .\\
+    たとえば,
+    \[
+    M=\{A,B\}
+    \quad\text{ならば}\quad
+    2^{M}= \bigl\{\,\varnothing,\;\{A\},\;\{B\},\;\{A,B\}\bigr\}.
+    \]
+    \item [補足2]部分集合はbundleに他ならない.}
+  \end{itemize}
+\end{frame}
+
+
+\begin{frame}{2.1  Preliminaries：評価関数の例}
+  \small
+  $2^{\lvert M \rvert}$について全ての評価値を毎回計算すると大変である.以下の例では個別の評価値のみを考えるため、$2^{\lvert M \rvert}$を考える代わりに,|M|個で済む。\\
+  代表的な評価関数($Valuation Function$)の例：
+  \begin{itemize}
+    \item 加法型（$Additive$）：  \\
+    各アイテム $j \in M$ に個別の評価 $v_i(\{j\})$ をそれぞれ持ち,任意の部分集合 $S \subseteq M$ に対して：  
+    \[
+    v_i(S) = \sum_{j \in S} v_i(\{j\})
+    \]
+    \item ユニットデマンド型（$Unit-Demand$）：\\  
+    部分集合 $S \subseteq M$ に対して,最も価値の高いアイテム1つの価値を取り,それを部分集合の評価とする.：  
+    \[
+    v_i(S) = \max_{j \in S} v_i(\{j\})
+    \]
+    \item 一般の組合せ型（$General Combinatorial$）：\\  
+    詳細はAppendix A.2 および B.3 に記載.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{2.1  Preliminaries：オークションの設定}
+  \small
+  \begin{itemize}
+    \item 参加者 $i$ に取り得る評価関数の集合を $\mathcal{V}_i$ とする．  
+          その直積
+          \[
+            \mathcal{V}\;=\;\mathcal{V}_1 \times \cdots \times \mathcal{V}_n
+          \]
+          が「評価関数が取りうる空間」である.\\
+          各 $i$ の真の評価関数 $v_i$ は分布 $F_i$（ $\mathcal{V}_i$上で定義される）から独立に抽出される.その組を $\mathbf{v}=(v_1,\ldots,v_n)$ と書く．
+    \item 主催者（auctioneer）は分布  
+          $\mathbf{F}=(F_1,\ldots,F_n)$ を既知とするが，実現した評価の組 $\mathbf{v}$ は観測できない．
+    \item 各参加者は（真実とは限らない）入札 $\mathbf{b}=(b_1,\ldots,b_n)$ を提出し，  
+          メカニズム $(g,p)$ が入札に基づいて  
+          割当 $g(\mathbf{b})\in(2^{M})^{n}$ と支払い $p(\mathbf{b})\in\mathbb{R}^{n}_{\ge0}$ を決定する．
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{2.1  Preliminaries：メカニズム}
+  \small
+  \begin{itemize}
+    \item オークションは $(g, p)$ のペアとして表される.
+     \begin{itemize}
+        \item 割り当て($Allocation$) $g_i: \mathcal{V} \rightarrow 2^M$
+        \item 確率的な割り当て($Allocation$) $g_i : \mathcal{V}\;\longrightarrow\mathcal{P}$,
+        \begin{equation*}
+        \textstyle
+        \mathcal{P}=\bigl\{\,
+        q\in\mathbb{R}^{2^{|M|}}_{\ge0}\;:\;
+        \forall m\in M,\;
+        0\leq q(S)\le1
+        \bigr\}.
+        \end{equation*}
+        \item 支払い($Payment$) $p_i: \mathcal{V} \rightarrow \mathbb{R}_{\geq 0}$
+      \end{itemize}
+    \item オークションでの入力と出力について：
+    \begin{itemize}
+        \item 各プレイヤー $i$ は評価関数
+        $b_i:2^{M}\to\mathbb{R}_{\ge 0}$ を申告する(自己申告メカニズム).
+        \item 入力として,入札 $\mathbf{b}\ = (b_1, \ldots, b_n) \in \mathcal{V}$ に対して,
+        \item 以下の式のように割り当てと支払いを出力する(確率的割り当てについては次ページ).
+        \begin{equation*}
+        \begin{aligned}
+        g(\mathbf{b}) &= \bigl(g_{1}(\mathbf{b}),\dots,g_{n}(\mathbf{b})\bigr)
+                      \;\in\;(2^{M})^{\,n}\\[4pt]
+        p(\mathbf{b}) &= \bigl(p_{1}(\mathbf{b}),\dots,p_{n}(\mathbf{b})\bigr)
+                      \;\in\;\mathbb{R}^{\,n}_{\ge 0}.
+        \end{aligned}
+        \end{equation*}
+    \end{itemize}
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{2.1  Preliminaries：確率的な割り当て}
+%--- 束（部分集合）の命名 ----------------------------------------
+\newcommand{\numS}{2^{|M|}}        % 束の総数
+\newcommand{\Sk}{S_k}              % 束 S_k
+\newcommand{\Sik}{S_{i,k}}         % プレイヤー i に対応づけた S_k
+\newcommand{\qik}{q_{i,k}(\mathbf{b})} % その確率
+
+%--- 割当ベクトルの定義 ------------------------------------------
+\[
+  g(\mathbf{b})
+  \;=\;
+  \bigl(
+    g_1(\mathbf{b}),
+    \dots,
+    g_n(\mathbf{b})
+  \bigr),
+  \qquad
+  g_i(\mathbf{b})
+  \;=\;
+  \bigl(
+    \qik
+  \bigr)_{k=1}^{\numS}
+  \;\in\;
+  [0,1]^{\numS}.
+\]
+
+
+\[
+  \boxed{
+  \begin{aligned}
+    &\text{(1) item-wise feasibility} &
+      &\sum_{i=1}^{n}\sum_{k:\,m\in\Sk} \qik \;\le\; 1
+      &&\forall\,m\in M, \\[6pt]
+    &\text{(2) probability} &
+      &0 \;\le\; \qik \;\le\; 1
+      &&\forall\,i,\;k.
+  \end{aligned}
+  }
+\]
+\end{frame}
+
+
+\begin{frame}{2.1  Preliminaries：効用}
+  \small
+  \begin{itemize}
+    \item 評価関数 $v_i$ を持つ参加者の効用は,入札の組\(\mathbf{b}\)において次式で与えられる：
+    \[
+    u_i(v_i;\mathbf{b}\ ) = v_i(g_i(\mathbf{b}\ )) - p_i(\mathbf{b}\ )
+    \]
+    \item 以下の略記をこれまでと同じように採用する：
+    \begin{align*}
+    \mathbf{v}_{-i}           &= (v_1,\ldots,v_{i-1},v_{i+1},\ldots,v_n),\\
+    \mathbf{b}_{-i}           &= (b_1,\ldots,b_{i-1},b_{i+1},\ldots,b_n),\\
+    \mathcal{V}_{-i} &= \prod_{j\neq i}\mathcal{V}_j.
+\end{align*}
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{2.1  Preliminaries：DSICとIR}
+  \small
+  Krishnaでは,BICとInterim IRで考察をしたが,\\
+  DüttingではDSICとEx-post IRで考察をする.\\
+  \textbf{Dominant Strategy Incentive Compatible (DSIC)}：
+  \begin{itemize}
+    \item 他の参加者のビッドに関係なく,真実の申告が常に最善である場合,そのオークションはDSICである.
+    \begin{equation*}
+    \begin{aligned}
+    &\forall\,i,\;\forall\,v_i\in\mathcal{V}_i,\;
+      \forall\,b_i\in\mathcal{V}_i,\;
+      \forall\,\mathbf{b}_{-i}\in\mathcal{V}_{-i}:\\[2pt]
+    &\qquad
+      u_i\!\bigl(v_i;\,(v_i,\mathbf{b}_{-i})\bigr)
+      \;\ge\;
+      u_i\!\bigl(v_i;\,(b_i,\mathbf{b}_{-i})\bigr).
+    \end{aligned}
+    \end{equation*}
+  \end{itemize}
+
+  \vspace{0.5em}
+  \textbf{Ex\textendash{}post Individually Rational (IR)}：
+  \begin{itemize}
+    \item 参加者が真実を申告した場合,効用が常に0以上であるとき,オークションはIRである.
+    \begin{equation*}
+    \begin{aligned}
+    &\forall\,i,\;\forall\,v_i\in\mathcal{V}_i,\;
+      \forall\,b_i\in\mathcal{V}_i,\;
+      \forall\,\mathbf{b}_{-i}\in\mathcal{V}_{-i}:\\[2pt]
+    &\qquad
+      u_i\!\bigl(v_i;\,(v_i,\mathbf{b}_{-i})\bigr)\;\ge\;0.
+    \end{aligned}
+    \end{equation*}
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{前回までの復習：ICについて}
+\small
+\textbf{DSIC：Dominant Strategy Incentive Compatibility}
+
+\begin{itemize}
+  \item 各参加者が,他の参加者の行動に関係なく,真実を申告するのが常に最適な戦略である場合.
+\begin{align*}
+  &\forall\,i,\;\forall\,v_i,b_i\in\mathcal{V}_i,\;
+    \forall\,\mathbf{b}_{-i}\in\mathcal{V}_{-i}:\\[2pt]
+  &\quad
+    u_i\!\bigl(v_i;\,(v_i,\mathbf{b}_{-i})\bigr)
+    \;\ge\;
+    u_i\!\bigl(v_i;\,(b_i,\mathbf{b}_{-i})\bigr).
+\end{align*}
+\end{itemize}
+
+\vspace{1em}
+
+\textbf{BIC：Bayesian Incentive Compatibility}
+
+\begin{itemize}
+  \item 各参加者が,他の参加者も真実を申告するという前提の下で,真実を申告するのが最善である場合.
+\begin{align*}
+  \forall\,i,\;\forall\,v_i\in\mathcal{V}_i,b_i\in\mathcal{V}_i:\quad\\[2pt]
+  \mathbb{E}_{\mathcal{V}_{-i}}\!\Bigl[\,u_i\!\bigl(v_i;\,(v_i,\mathbf{v}_{-i})\bigr)\Bigr]
+  &\ge
+  \mathbb{E}_{\mathcal{V}_{-i}}\!\Bigl[\,u_i\!\bigl(v_i;\,(b_i,\mathbf{v}_{-i})\bigr)\Bigr].
+\end{align*}
+\end{itemize}
+\end{frame}
+
+\begin{frame}{前回までの復習：IRについて}
+  \small
+  \begin{enumerate}
+  \item \textbf{Ex\textendash{}ante Individually Rational}：\\
+   各プレイヤー \(i\)が,typeが実現する前の参加を決める段階で,すべての参加者において,真実申告をしたときの、期待効用が非負である場合.
+  \begin{equation*}
+    \forall\,i:\quad
+    \mathbb{E}_{\mathcal{X}}\bigl[U_i(\widetilde{\mathbf{x}_i})\bigr]\;\ge\;0
+  \end{equation*}
+
+  \vspace{1ex}
+  \item \textbf{Interim Individually Rational}：\\
+  各プレイヤー \(i\)が,自分のtypeの実現値を知っているが,他人のtypeの実現値を知らない時に,すべての参加者において,真実申告をしたときの、期待効用が非負である場合.
+  \begin{equation*}
+    \forall\,i,\;\forall\,x_i\in\mathcal{X}_i:\quad
+    \mathbb{E}_{\mathcal{X}_{-i}}\bigl[Q_i(x_i,\mathbf{x}_{-i})\,x_i - M_i(x_i,\mathbf{x}_{-i})\bigr]\;\ge\;0
+  \end{equation*}
+
+  \vspace{1ex}
+  \item \textbf{Ex\textendash{}post Individually Rational}：\\
+  各プレイヤー \(i\)が,全ての人のtypeが公開されていて知っている時に,すべての参加者において,真実申告をしたときの効用が非負である場合.
+  \begin{equation*}
+    \forall\,i,\;\forall\,x_i:\quad
+    Q_i(x_i,\mathbf{x}_{-i})\,x_i - M_i(x_i,\mathbf{x}_{-i})\;\ge\;0
+  \end{equation*}
+  \end{enumerate}
+\end{frame}
+
+\begin{frame}{2.1  Preliminaries：最適オークションの設計}
+  \small
+  \begin{itemize}
+    \item DSICであるオークションにおいては，各参加者が真実を申告するのが最善となり，均衡である．
+    \item したがって，ある評価の組 $\mathbf{v}$ に対する均衡での収入は，単に次の和として表される：
+    \[
+      \sum_i p_i(\mathbf{v})
+    \]
+    \item 最適オークション設計（Optimal Auction Design）の目的は，期待収入を最大化する DSIC オークションを見つけること：
+    \[
+      \sum_{i} \mathbb{E}\Bigl[p_i(\mathbf{v})\Bigr]
+    \]
+    \item Düttingでは，BIC ではなく DSIC オークションに焦点を当てる．
+    \item 評価の分布や合理性に関する Common Knowledge がなくても，DSIC オークションでは真実の申告が均衡となるから．
+  \end{itemize}
+\end{frame}
+
+
+\end{document}
+

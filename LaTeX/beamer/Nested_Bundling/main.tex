@@ -1,0 +1,103 @@
+\PassOptionsToPackage{dvipdfmx,implicit=true}{hyperref} % ← beamerの既定を上書き
+\PassOptionsToPackage{dvipdfmx}{graphicx}
+\documentclass[dvipdfmx,professionalfonts]{beamer} % autodetect系は使わない
+
+% テーマ（好みで変更可）
+\usetheme{Madrid}
+\usecolortheme{default}
+
+% 共有前置き＆マクロ
+\input{../../shared/preamble_beamer.tex}
+\input{../../shared/macros.tex}
+
+% メタ情報
+\title{\papertitle}
+\author{\paperauthor}
+\institute{\paperaffil}
+\date{\paperdate}
+
+\begin{document}
+\begin{frame}
+  \titlepage
+\end{frame}
+
+% セクション見出しごとにアウトライン（任意）
+\AtBeginSection[]{
+  \begin{frame}{Outline}
+    \tableofcontents[currentsection]
+  \end{frame}
+}
+
+\begin{frame}{Nested Bundling の位置づけ}
+入れ子型メニュー(Nested Bundling)とは,
+\begin{itemize}
+    \item $\;\emptyset = b_0 \subset b_1 \subset \cdots \subset b_K \subseteq \{1,\dots,n\}$ を価格 $p_1<\cdots<p_K$ で提示するメニューのこと.
+    \item $K{=}1$ は \textbf{Grand Bundling}（全ての商品を束とするメニュー），$K{=}n$ は（ほぼ）\textbf{個別販売}に近い.
+    \item 実務でも広く見られる構造である。例として Netflix のプラン（広告付き・広告なし・高画質）などが挙げられる。.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Yang (2025)：タイプが一次元の場合}
+タイプは一次元で、$t\in[\underline t,\overline t]$。タイプが高いほど大きなバンドルを好み、高い価格を受け入れる傾向にあるという設定。\\[6pt]
+
+\textbf{結果}\\
+支配されないバンドル集合が集合包含関係で整列できるとき，最適メニューは\textbf{入れ子型（Nested Bundling）}となる.\\[6pt]
+
+\small
+\textbf{用語の定義}\\
+ここで，バンドル $b_1,b_2$ について，
+\[
+b_1\subseteq b_2,\quad Q(b_1)\le Q(b_2)
+\]
+なら $b_1$ は $b_2$ に\textbf{支配}される.\\
+$Q(b)$ はバンドル $b$ を単独で販売したときの販売量.\\[8pt]
+
+\textbf{直感}：\\
+\textit{タイプが高い消費者ほど大きなバンドルを好むという単調な選好構造があるため、バンドルの包含関係に沿って価格を上げていく「入れ子型メニュー（nested menu）」で、ICかつ最適な価格設計が実現可能になる。}
+
+
+\end{frame}
+
+
+\begin{frame}{タイプが多次元の場合}
+タイプが多次元である場合については，決定論的な割り当ての中でも、特に \textbf{Grand Bundling} が最適となる条件を分析した研究が多く存在する。\\[4pt]
+\small
+\begin{itemize}
+  \item Haghpanah \& Hartline\,(2021)：一般的な分布下での十分条件.
+  \item Daskalakis et al.\,(2017), Hashimoto et al.\,(2025)らが,分布のパラメータ等に基づく必要十分条件を提示
+\end{itemize}
+
+今回は,それらの拡張として,タイプが多次元でのNested Bundlingについて扱いたいと考えている.
+
+\small
+\begin{itemize}
+    \item ただ，多次元では\textbf{確率的な割り当てや複雑なメニュー構造}が最適となる例が大半である.
+    \item Nested Bundling のような単純に一列に並べられる構造は一般には維持されにくい.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Dütting et al. (2019) の枠組み}
+Yao (2025) は一次元タイプで入れ子型が最適となる条件を解析的に導いたが，多次元では解析的アプローチが困難である。そこで、Dütting et al. (2019) の Neural Network を用いた自動メカニズム設計（AMD）の枠組みを活用する。\\[8pt]
+\textbf{目的：}
+\begin{itemize}\itemsep2pt
+  \item 多次元タイプ（例：2品・3品）において，最適メニュー構造を\textbf{数値的に探索・可視化}する。
+  \item 特に，\textbf{入れ子型メニュー（chain menu）を制約として課す}ことで，
+        Grand Bundling（1段）～Nested Bundling（多段）～確率的割当の
+        どこが最適になるかを比較。
+\end{itemize}
+\textbf{設定例：}
+\begin{itemize}\itemsep2pt
+  \item 2財（または3財），独立な価値分布 $x_i\sim U[c_i,c_i+1]$。
+  \item RegretNet により IC・IR を満たす最適メカニズムを学習。
+  \item 「鎖制約あり／なし」で学習を比較し，多次元で
+        \textbf{入れ子構造}がどの程度再現されるかを検証する
+\end{itemize}
+\end{frame}
+
+% 参考文献（スライド1枚）
+\begin{frame}[allowframebreaks]{References}
+  \printbibliography[heading=none]
+  \nocite{*}
+\end{frame}
+
+\end{document}

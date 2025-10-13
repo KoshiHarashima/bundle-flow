@@ -1,0 +1,138 @@
+\documentclass[dvipdfmx,autodetect-engine]{article}
+
+\input{../../shared/preamble_article.tex}
+\input{../../shared/macros.tex}
+
+\title{\papertitle}
+\author{\paperauthor \\ \paperaffil}
+\date{\paperdate}
+
+\begin{document}
+\maketitle
+
+\section{はじめに}
+
+\section*{Radon 測度}
+\paragraph{定義}
+\begin{itemize}
+  \item \(X\) を局所コンパクト Hausdorff，\(\mathcal{B}(X)\) を Borel \(\sigma\)-代数とする。
+  \item \(\mu\) は各コンパクト \(K\subset X\) で \(\mu(K)<\infty\)（局所有限）。
+  \item 内部正則：\(\mu(A)=\sup\{\mu(K):K\subset A,\ K\ \text{compact}\}\)。
+  \item 外部正則：\(\mu(A)=\inf\{\mu(U):A\subset U,\ U\ \text{open}\}\)。
+\end{itemize}
+\paragraph{直感}
+\begin{itemize}
+  \item 質量を開集合とコンパクト集合で「挟んで」測れる Borel 測度。
+  \item \(\mathbb{R}^n\) では Lebesgue・表面測度・Dirac を自然に含む。
+  \item 積分・確率分布の基準測度として扱いやすい。
+\end{itemize}
+\paragraph{例}
+\begin{itemize}
+  \item Dirac：\(\delta_{x_0}(A)=\mathbf{1}_A(x_0)\)。
+  \item 区間の一様：\(U_{[a,b]}(E)=\int_E \frac{1}{b-a}\mathbf{1}_{[a,b]}(x)\,d\lambda(x)\)。
+  \item 表面測度：滑らかな \(S\subset\mathbb{R}^n\) に対し \(\sigma_S(A)=\mathcal{H}^{n-1}(A\cap S)\)。
+\end{itemize}
+\paragraph{Regularity}
+\begin{itemize}
+  \item \textbf{Bottom line:} A Radon measure is a Borel measure finite on compacts and \emph{regular}: you can approximate sets from inside by compacts and from outside by opens. Equivalently,
+  \[
+  \forall A\in\mathcal{B}(X),\ \forall \varepsilon>0,\ \exists K\subset A\subset U\ (K\ \text{compact},\ U\ \text{open})\ \text{s.t.}\ \mu(U\setminus K)<\varepsilon.
+  \]
+  \item \textbf{Intuition:} Most mass sits in a compact core; any set can be covered as tightly as you like by open cushions. This stabilizes integration on \(C_c(X)\) (Riesz) and behaves well under continuous pushforwards.
+\end{itemize}
+
+\paragraph{Examples}
+\begin{itemize}
+  \item Dirac \(\delta_{x_0}\): choose \(K=\{x_0\}\), \(U\) any neighborhood of \(x_0\).
+  \item Uniform on \([a,b]\): use compact \(K\subset[a,b]\) and slightly larger open \(U\supset[a,b]\).
+  \item Surface measure \(\sigma_S\): take compact patches \(K\subset S\) and tubular neighborhoods \(U\supset S\).
+\end{itemize}
+
+\paragraph{Quick facts}
+\begin{itemize}
+  \item On metric/Polish spaces (e.g. \(\mathbb{R}^n\)), finite Borel measures are regular \(\Rightarrow\) probabilities are Radon.
+  \item Regularity is preserved by continuous pushforwards \(T_\#\mu\).
+\end{itemize}
+
+
+\vspace{1em}
+
+\section*{符号付測度}
+\paragraph{定義}
+\begin{itemize}
+  \item 有限符号付測度：\(\nu:\mathcal{A}\to\mathbb{R}\) が可算加法的，\(\nu(\emptyset)=0\)。
+  \item 一般には \([-\infty,\infty]\) 値も許すが \(+\infty,-\infty\) の同時出現は不可。
+  \item 全変動：\(|\nu|(A)=\sup\sum_i |\nu(A_i)|\)（可算分割に沿う上限）。
+\end{itemize}
+\paragraph{直感}
+\begin{itemize}
+  \item プラス・マイナスの質量を許す；しばしば \(\nu=\mu_1-\mu_2\) と見なせる。
+  \item \(\int f\,d\nu\) は「符号付き重み」での平均。
+\end{itemize}
+\paragraph{例}
+\begin{itemize}
+  \item \(\nu=\delta_{1}-\delta_{0}\)。
+  \item \(\nu(E)=\int_E w(x)\,d\lambda(x)\)（\(w\in L^1\) で符号可）。
+  \item 幾何的差：\(\nu=\lambda-\sigma_S\) など。
+\end{itemize}
+
+\vspace{1em}
+
+\section*{Jordan 分解}
+\paragraph{定義}
+\begin{itemize}
+  \item 有限符号付測度 \(\nu\) に一意な \(\nu^+,\nu^-\ge0\) が存在し \(\nu=\nu^+-\nu^-\)。
+  \item \(\nu^+\perp \nu^-\)，全変動は \(|\nu|=\nu^++\nu^-\)；Hahn 分解に対応。
+\end{itemize}
+\paragraph{直感}
+\begin{itemize}
+  \item 正と負の山を分離する標準形で，議論を正測度に還元できる。
+  \item 以後は \(\nu^+,\nu^-\) を個別に扱えば良い。
+\end{itemize}
+\paragraph{例}
+\begin{itemize}
+  \item \(\delta_{1}-\delta_{0}\Rightarrow(\nu^+,\nu^-)=(\delta_{1},\delta_{0})\)。
+  \item \(\nu=f\mu\Rightarrow \nu^+=f^+\mu,\ \nu^-=f^-\mu\)（\(f^\pm=\max(\pm f,0)\)）。
+\end{itemize}
+
+\vspace{1em}
+
+\section*{Radon--Nikodym 定理}
+\paragraph{定義}
+\begin{itemize}
+  \item \(\sigma\)-finite な \(\mu,\nu\) で \(\nu\ll\mu\) なら \(\exists f\in L^1(\mu)\) s.t. \(\nu(E)=\int_E f\,d\mu\)。
+  \item \(f\) は \(\mu\)-a.e. 一意で \(\dfrac{d\nu}{d\mu}\)（Radon--Nikodym 微分）と書く。
+\end{itemize}
+\paragraph{直感}
+\begin{itemize}
+  \item 絶対連続な測度は「密度」\(f\) をもち，\(d\nu=f\,d\mu\) と表せる。
+  \item 確率では密度・尤度比；解析では変数変換の核。
+\end{itemize}
+\paragraph{例}
+\begin{itemize}
+  \item \(U_{[a,b]}\ll\lambda\)，\(\dfrac{dU_{[a,b]}}{d\lambda}=\dfrac{1}{b-a}\mathbf{1}_{[a,b]}\)。
+  \item \(\nu(E)=\int_E w\,d\lambda\Rightarrow \dfrac{d\nu}{d\lambda}=w\)。
+  \item \(\delta_{x_0}\not\ll\lambda\)（密度は存在しない）。
+\end{itemize}
+
+\vspace{1em}
+
+\section*{5問小テスト}
+\begin{enumerate}
+  \item Radon 測度の内部正則・外部正則を一文で述べよ。
+  \item \(\delta_{0}\) は \(\lambda\) に絶対連続か。最短の理由を挙げよ。
+  \item \(\nu=\delta_{1}-\delta_{0}\) の Jordan 分解 \((\nu^+,\nu^-)\) を求めよ。
+  \item \(\nu(E)=\int_E \big(2\mathbf{1}_{[0,1]}-\mathbf{1}_{[1,2]}\big)\,d\lambda\) の \(\dfrac{d\nu}{d\lambda}\) を書け。
+  \item \(T(x)=ax+b\,(a\neq0)\)。\(\mu=f\lambda\) として \(T_\#\mu\) の \(\lambda\) に関する密度を与えよ。
+\end{enumerate}
+
+\vspace{1em}
+
+\section*{transformed measure（変換測度）への接続}
+可測写像 \(T:X\to Y\) に対し \(T_\#\mu(A):=\mu(T^{-1}(A))\) は（\(T\) が連続なら）Radon を保ち，符号付でも \(T_\#\nu=T_\#\nu^+-T_\#\nu^-\) と Jordan 分解が可換。さらに \(\nu\ll\mu\) で \(\nu=\tfrac{d\nu}{d\mu}\,\mu\) なら \(T_\#\nu\ll T_\#\mu\)。特に \(T\) が \(C^1\) 微分同相で \(\mu=f\,\lambda\)（Lebesgue）なら変数変換より
+\[
+\frac{d\,(T_\#(f\lambda))}{d\lambda}(y)=f\big(T^{-1}y\big)\,|\det DT^{-1}(y)|,
+\]
+すなわち「transformed measure」の密度は元の密度の合成にヤコビアンが掛かる。
+
+\end{document}
